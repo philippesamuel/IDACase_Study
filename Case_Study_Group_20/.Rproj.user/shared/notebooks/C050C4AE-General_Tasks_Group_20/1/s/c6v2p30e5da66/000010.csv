@@ -1,0 +1,10 @@
+"0","K7_cars_Dortmund <- K7_Cars_ID %>% merge(Zulassungen, by.x='ID_Fahrzeug', by.y='IDNummer') %>% filter(Gemeinden == 'DORTMUND')
+K7_cars_Dortmund <- K7_Cars_ID %>% merge(Zulassungen, by.x='ID_Fahrzeug', by.y='IDNummer') %>% filter(Gemeinden == 'DORTMUND')
+#Now we have a data frame containing all cars with component K7 that are registered in Dortmund
+#Get the number of those cars by counting the rows of that data frame
+nrow(K7_cars_Dortmund)
+"
+"1","[1]"
+"1"," 5275"
+"1","
+"

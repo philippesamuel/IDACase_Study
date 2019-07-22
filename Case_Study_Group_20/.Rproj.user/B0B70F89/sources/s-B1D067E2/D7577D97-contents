@@ -1,0 +1,670 @@
+versuchsplan_ui <- function(id) {
+  ns <- NS(id)
+  
+  tagList(
+    data_selector_ui(
+      id = ns("id_data_selector")
+    ),
+    actionButtonQW(
+      inputId = ns("add_histogram"),
+      label = NULL,
+      icon = icon("chart-bar"),
+      tooltip = "Öffne Histogramm"
+    ),
+    actionButtonQW(
+      inputId = ns("add_pareto"),
+      label = NULL,
+      icon = icon("poll"),
+      tooltip = "Paretoplots anzeigen"
+    ),
+    actionButtonQW(
+      inputId = ns("add_residuals"),
+      label = NULL,
+      icon = icon("line-chart"),
+      tooltip = "Resiuden-Verlauf anzeigen"
+    ),
+    actionButtonQW(
+      inputId = ns("add_residuals2"),
+      label = NULL,
+      icon = icon("chart-line"),
+      tooltip = "Resiuden-QQ-Plot anzeigen"
+    ),
+    actionButtonQW(
+      inputId = ns("add_intercept"),
+      label = NULL,
+      icon = icon("less-than-equal"),
+      tooltip = "Vergleich Versuchsplanung und Vorhersage (Referenzmodell)"
+    ),
+    uiOutput(
+      outputId = ns("select_factor1")
+    ),
+    uiOutput(
+      outputId = ns("select_factor2")
+    ),
+    uiOutput(
+      outputId = ns("select_significance")
+    ),
+    uiOutput(
+      outputId = ns("select_hw_ww")
+    ),
+    actionButtonQW(
+      inputId = ns("add_surface"),
+      label = NULL,
+      icon = icon("square"),
+      tooltip = "2D Surface-Plot anzeigen"
+    ),
+    actionButtonQW(
+      inputId = ns("add_surface3d"),
+      label = NULL,
+      icon = icon("cube"),
+      tooltip = "3D Surface-Plot anzeigen"
+    ), 
+    actionButtonQW(
+      inputId = ns("add_main_effects"),
+      label = NULL,
+      icon = icon("minus"),
+      tooltip = "Haupteffekte anzeigen"
+    ),
+    actionButtonQW(
+      inputId = ns("add_inter_effects"),
+      label = NULL,
+      icon = icon("align-justify"),
+      tooltip = "Interaktionseffekte anzeigen"
+    )
+  )
+}
+
+versuchsplan <- function(input, output, session, .values) {
+  
+  ns <- session$ns
+  
+  #Nur Versuchsplan Dataset benötigt
+  data <- reactive({
+    data_selector_return$data()
+  })
+  
+  output$select_factor1 <- renderUI({
+    selectInput(inputId=ns("x"), "Wähle 1. Faktor:",
+                choices = c("A" = "A", "B" = "B", "C" = "C", "D" = "D"), 
+                selected = "A")
+  })
+  
+  output$select_factor2 <- renderUI({
+    selectInput(inputId=ns("y"), "Wähle 2. Faktor:",
+                choices = c("A" = "A", "B" = "B", "C" = "C", "D" = "D"), 
+                selected = "B")
+  })
+  
+  output$select_significance <- renderUI({
+    numericInput(inputId = ns("n"),
+                 label = "Signifikanzniveau:",
+                 value = 0.05,
+                 step = 0.001,
+                 min = 0.001,
+                 max = 1)
+  })
+  
+  output$select_hw_ww <- renderUI({
+    selectInput(inputId = ns("hw_ww"),
+                label = "mit Wechselwirkungen",
+                choices = c("Ja" = TRUE, "Nein" = FALSE), 
+                selected = "Ja")
+  })
+  
+  # Histogramm:
+  histogram <- reactive({
+    
+    class_len <- floor(sqrt(length(data()$Flugdauer)))
+    x_max <- max(data()$Flugdauer)
+    x_min <- min(data()$Flugdauer)
+    R <- x_max - x_min
+    class_width <- R / class_len
+    breaks <- x_min + 0:class_len * class_width
+    
+    ggplot(data = data()) + geom_histogram(aes(x = Flugdauer, y = ..density..), breaks = breaks, closed = "left", col = "mediumblue", fill = "lightblue") +
+      ggtitle("Histogramm: Versuchsplan") + xlab("Flugdauer [s]") + ylab("Relative Häufigkeitsdichte [-]") +
+      scale_x_continuous(breaks = breaks) + theme(plot.title = element_text(hjust = 0.5)) + facet_wrap(~Ort)
+  })
+  
+  observeEvent(input$add_histogram, {
+    .values$viewer$append_tab(
+      tab = tabPanel(
+        title = "Histogramm: Versuchsplan",
+        value = "histogramm vp",
+        plotOutput(
+          outputId = ns("histogram")
+        )
+      )
+    )
+  })
+  
+  output$histogram <- renderPlot({
+    histogram()
+  })
+  
+  #Haupteffekte:
+  observeEvent(input$add_main_effects, {
+    .values$viewer$append_tab(
+      tab = tabPanel(
+        title = "Haupteffekte",
+        value = "main_effect",
+        plotOutput(
+          outputId = ns("main_effect")
+        )
+      )
+    )
+  })
+  
+  output$main_effect <- renderPlot({ 
+    
+    # Data-Frame mit relevanten Daten und Formatierung für die Plots
+    
+    #Faktorenvektoren
+    A = c(data()$Fluegellaenge)
+    B = c(data()$Koerperlaenge)
+    C = c(data()$Einschnitt)
+    D = c(data()$Papierstaerke)
+    res = c(data()$Flugdauer)
+    
+    #Gemeinsamer Datensatz
+    vp_df <- data.frame(A, B, C, D, res)
+    
+    #Abtrennen Referenzmodell und Variationen
+    vp_center <- vp_df %>%
+      filter(A =="0")%>%
+      mutate(group = 0)
+    
+    vp_cube <- vp_df%>%
+      filter(A!="0")%>%
+      mutate(group = 1) 
+    
+    #Zu neuem Datensatz verbinden (Referenz und Variationen nach "group" aufgesplittet)
+    vp_df <- rbind(vp_cube, vp_center)
+    
+    #Wechselwirkungen hinzufügen
+    vp_df <- vp_df %>% 
+      mutate(A_B = A * B, A_C = A * C, B_C = B * C, A_D = A * D, B_D = B*D, C_D = C*D, A_B_C = A*B*C, A_B_D = A*B*D, A_C_D = A*C*D, B_C_D = B*C*D, A_B_C_D = A*B*C*D)
+    
+    #Datensatz aufräumen: Spalten zusammenfassen nach Faktorausprägung
+    vp_tidy <- gather(vp_df, key = "Faktor", value = "Kombination", 
+                      c("A", "B", "C", "D", "A_B", "A_C", "B_C", "A_D","B_D", "C_D", "A_B_C", "A_B_D", "A_C_D", "B_C_D", "A_B_C_D" )) %>% 
+      as_tibble()
+
+    #Datensatz für jeden Faktor einzeln
+    factors_tbl <- vp_tidy %>% 
+      filter(Faktor %in% c("A", "B", "C", "D"))
+    
+    #Für jede Kombination die Durchschnittswerte bestimmen:
+    avg_df <- factors_tbl %>% 
+      group_by(Faktor, Kombination) %>% 
+        summarize(ybar = mean(res))
+    
+    #Plots
+    plot_main_effects <- avg_df %>% 
+        ungroup() %>% 
+          mutate(Faktor = ifelse(Faktor == "A", yes = "A (Fluegellaenge)", 
+                                 ifelse(Faktor == "B", yes = "B (Koerperlaenge)", 
+                                        ifelse(Faktor == "C", yes ="C (Einschnitt)", no = "D (Papierstaerke)")))) %>% 
+      ggplot(data = ., aes(x = Kombination, y = ybar)) + facet_wrap(facets = ~ Faktor) +  
+      geom_smooth(method = "lm", se = FALSE, col = "black") + scale_x_continuous(name = "", minor_breaks = NULL) + 
+      scale_y_continuous(name = "Flugdauer" ) + labs(title = "Plot: Haupteffekte") +
+      theme(strip.background = element_rect(fill = "lightblue", color = "darkslategray"),
+            strip.text = element_text(size = 16),
+            panel.spacing = unit(1, "lines"),
+            plot.title = element_text(size = 18, hjust = 1),
+            axis.text = element_text(size = 14),
+            axis.title.y = element_text(size = 16)) 
+    plot_main_effects
+    
+  })
+  
+  #Interaktionseffekte:
+  observeEvent(input$add_inter_effects, {
+    .values$viewer$append_tab(
+      tab = tabPanel(
+        title = "Interaktionseffekte",
+        value = "inter_effect",
+        plotOutput(
+          outputId = ns("inter_effect")
+        )
+      )
+    )
+  })
+
+  output$inter_effect <- renderPlot({
+
+    # Data-Frame mit relevanten Daten und Formatierung für die Plots
+    
+    #Faktorenvektoren
+    A = c(data()$Fluegellaenge)
+    B = c(data()$Koerperlaenge)
+    C = c(data()$Einschnitt)
+    D = c(data()$Papierstaerke)
+    res = c(data()$Flugdauer)
+    
+    #Gemeinsamer Datensatz
+    vp_df <- data.frame(A, B, C, D, res)
+    
+    #Dictionary, um ausgewählte Faktoren mit ihrer Beschreibung zu verbinden:
+    dict <- vector(mode = "list", length = 4)
+    names(dict) <- c("A", "B", "C", "D")
+    dict[[1]] <- "Fluegellaenge"; dict[[2]] <- "Koerperlaenge"; dict[[3]] <- "Einschnitt"; dict[[4]] <- "Papierstaerke"
+    
+    if (input$x != input$y) {
+      #Nach Input-Faktoren gruppierte Dataframes erstellen:
+      interaction_X_Y_tbl <- vp_df %>%
+          group_by_at(c(input$x, input$y)) %>%
+            summarise(ybar = mean(res)) %>%
+              ungroup
+      
+      #Alle Kombinationen für die Interaktion bestimmen:
+      lX_lY <- filter(interaction_X_Y_tbl, get(input$x) == -1, get(input$y) == -1)
+      lX_hY <- filter(interaction_X_Y_tbl, get(input$x) == -1, get(input$y) ==  1)
+      hX_lY <- filter(interaction_X_Y_tbl, get(input$x) == 1 , get(input$y) == -1)
+      hX_hY <- filter(interaction_X_Y_tbl, get(input$x) == 1 , get(input$y) ==  1)
+      
+      #Dynamische Achsenbeschriftung:
+      xfactor <- paste(input$x, " (", dict[input$x], ")", sep = "")
+      yfactor <- paste(input$y, " (", dict[input$y], ")", sep = "")
+
+      #Plot erstellen:
+    plot_AB <- ggplot() +
+      geom_segment(mapping = aes(x = -1, xend = 1, y = lX_lY$ybar, yend = lX_hY$ybar, col = factor(-1)), size = 1.1) +
+      geom_segment(mapping = aes(x = -1, xend = 1, y = hX_lY$ybar, yend = hX_hY$ybar, col = factor(1)), size = 1.1) +
+      labs(x = xfactor, y = "Flugdauer", title = "Plot: Interaktionen") +
+      theme(plot.title = element_text(hjust = 0.5, size = 22), axis.title = element_text(size = 18),
+            axis.text = element_text(size = 16), legend.text = element_text(size = 16), legend.title = element_text(size = 18),
+            panel.border = element_blank()) + scale_color_brewer(palette = "Set1") + scale_color_discrete(name=yfactor) +
+      scale_x_continuous(breaks = c(-1, 1), minor_breaks = NULL)
+    
+    plot_AB
+    }
+  })
+
+  #Paretoplots:
+  observeEvent(input$add_pareto, {
+    .values$viewer$append_tab(
+      tab = tabPanel(
+        title = "Paretoplot",
+        value = "pareto",
+        plotOutput(
+          outputId = ns("pareto")
+        )
+      )
+    )
+  })
+
+  output$pareto <- renderPlot({
+
+    # Data-Frame mit relevanten Daten und Formatierung für die Plots
+    
+    #Faktorenvektoren
+    A = c(data()$Fluegellaenge)
+    B = c(data()$Koerperlaenge)
+    C = c(data()$Einschnitt)
+    D = c(data()$Papierstaerke)
+    res = c(data()$Flugdauer)
+    
+    #Gemeinsamer Datensatz
+    vp_df <- data.frame(A, B, C, D, res)
+    
+    #Wechselwirkungen hinzufügen
+    vp_df <- vp_df %>% 
+      mutate(A_B = A * B, A_C = A * C, B_C = B * C, A_D = A * D, B_D = B*D, C_D = C*D, A_B_C = A*B*C, A_B_D = A*B*D, A_C_D = A*C*D, B_C_D = B*C*D, A_B_C_D = A*B*C*D)
+    
+    #Datensatz aufräumen: Spalten zusammenfassen nach Faktorausprägung
+    vp_tidy <- gather(vp_df, key = "Faktor", value = "Kombination", 
+                      c("A", "B", "C", "D", "A_B", "A_C", "B_C", "A_D","B_D", "C_D", "A_B_C", "A_B_D", "A_C_D", "B_C_D", "A_B_C_D" )) %>% 
+      as_tibble()
+  
+    lm <- lm(res ~ (A + B + C + D)^5, data = vp_df) # Mit allen Wechselwirkungen
+    
+    #Koeffizienten auslesen:
+    b0 <- round(coef(lm)[1], 2)
+    b1 <- abs(round(coef(lm)[2], 2))
+    b2 <- abs(round(coef(lm)[3], 2))
+    b3 <- abs(round(coef(lm)[4], 2))
+    b4 <- abs(round(coef(lm)[5], 2))
+    
+    #Für die Anzeige der Gleichung auf dem Plot, damit nicht "+-" bei negativen Koeffizienten steht:
+    sgn <- function(x){
+      if(x < 0)
+      {
+        signum <- " - "
+      }
+      else
+      {
+        signum <- " + "
+      }
+    }
+    
+    alpha = input$n #Signfikanzniveau
+    effects <- summary(lm)$coefficients[,3][2:length(summary(lm)$coefficients[,3])] #T-Werte aus der Summary zum Modell auslesen
+    data <- data.frame(name = names(effects), effects = abs(effects)) #Dataframe aus Namen der Effekte und ihren T-Werten erstellen
+    data$name <- factor(data$name, levels = data$name[order(data$effects, decreasing = TRUE)]) #In Faktor konvertieren und nach Größe ordnen
+    t_sig <- abs(qt(alpha/2, df = df.residual(lm))) #Signifkanzschwelle als T-Werte berechnen -> zum Vergleich
+    
+    #Paretoplot erstellen:
+    plot_pareto <- ggplot(data = data) +
+      geom_col(mapping = aes(x = name, y = effects), fill = "lightblue") +
+      geom_hline(yintercept = t_sig, col = "red") +
+      scale_x_discrete(name = NULL) +
+      scale_y_continuous(name = "t-Wert") + annotate("text", label = paste("y = ", b0, sgn(b1), b1, " x A", sgn(b2), b2, " x B", sgn(b3), b3, "x C", sgn(b4), b4, " x D"), x = Inf, y = Inf, vjust = 1, hjust = 1, size = 8) + 
+      theme(panel.border = element_blank(),
+            plot.title = element_text(hjust = 0.5, size = 20),
+            plot.subtitle = element_text(hjust = 0.5, size = 18),
+            axis.title = element_text(size = 18),
+            axis.text = element_text(size = 16),
+            legend.title = element_text(size = 18),
+            legend.text = element_text(size = 16)) +
+      labs(title = "Überprüfung der Haupteffekte und Wechselwirkungen",
+           subtitle = substitute(paste(t[Krit] == t_sig, " für ", alpha == a), list(t_sig = round(t_sig, 3), a = alpha)))
+    
+    plot_pareto
+    })
+
+  #3D-Surface-Plots:
+  observeEvent(input$add_surface3d, {
+    .values$viewer$append_tab(
+      tab = tabPanel(
+        title = "3D-Surface-Plots",
+        value = "surface3d",
+        plotlyOutput(
+          outputId = ns("surface3d")
+        )
+      )
+    )
+  })
+
+  output$surface3d <- renderPlotly({
+    
+    #Dictionary, um Ausgewählte Faktoren mit ihrer Beschreibung zu verbinden:
+    dict <- vector(mode = "list", length = 4)
+    names(dict) <- c("A", "B", "C", "D")
+    dict[[1]] <- "Fluegellaenge"; dict[[2]] <- "Koerperlaenge"; dict[[3]] <- "Einschnitt"; dict[[4]] <- "Papierstaerke"
+
+    # Data-Frame mit relevanten Daten und Formatierung für die Plots
+    A = c(data()$Fluegellaenge)
+    B = c(data()$Koerperlaenge)
+    C = c(data()$Einschnitt)
+    D = c(data()$Papierstaerke)
+    res = c(data()$Flugdauer)
+
+    vp_df <- data.frame(A, B, C, D, res) %>%
+      mutate(X = get(input$x), Y = get(input$y))
+    
+    #Nur bei ungleichen Faktoren berechnen:
+    if (input$x != input$y) {
+
+      #Dnyamische Achsenbschriftung:
+      xfactor <- paste(input$x, " (", dict[input$x], ")", sep = "")
+      yfactor <- paste(input$y, " (", dict[input$y], ")", sep = "")
+
+    #Wahlmöglichkeit, ob mit oder ohne Wechselwirkung:
+    if (input$hw_ww == TRUE){
+      lm_vp <- lm(res ~ X + Y + X*Y, data = vp_df) # Wechselwirkungen einbringen
+    }
+
+    else{
+      lm_vp <- lm(res ~ X + Y, data = vp_df) # Nur Haupteffekte
+    }
+
+    #2-D Gitter erstellen mit allen möglichen Kombinationen der Faktoren
+    grid <- expand.grid(X = seq(-1,1, by = 0.05), Y = seq(-1,1, by = 0.05))
+    
+    #Für das Gitter mit dem linearen Modell die Flugdauer vorhersagen
+    grid$predict <- predict(lm_vp, grid)
+
+    #Kombinationen aggregieren und zu Höhenkoordinate umformen
+    z_vals <- reshape2::acast(grid, Y ~ X, var = "predict")
+    
+    #2-D Gitter zum Plotten
+    x_seq <- seq(-1,1, by =0.05)
+    y_seq <- seq(-1,1, by = 0.05)
+
+    #Plot erstellen
+    plot_ly(x = x_seq, y = y_seq, z = z_vals, type = "surface")%>%
+      layout(
+        scene = list(
+          xaxis = list(
+            title = xfactor
+          ),
+          yaxis = list(
+            title = yfactor
+          ),
+          zaxis = list(
+            title = "Flugdauer"
+          )
+        )
+      ) %>%
+      colorbar(title = "Flugdauer")
+    }
+  })
+
+  #2D-Surface-Plots:
+  observeEvent(input$add_surface, {
+    .values$viewer$append_tab(
+      tab = tabPanel(
+        title = "Surface-Plots",
+        value = "surface",
+        plotlyOutput(
+          outputId = ns("surface")
+        )
+      )
+    )
+  })
+
+  output$surface <- renderPlotly({
+    
+    #Dictionary, um Ausgewählte Faktoren mit ihrer Beschreibung zu verbinden:
+    dict <- vector(mode = "list", length = 4)
+    names(dict) <- c("A", "B", "C", "D")
+    dict[[1]] <- "Fluegellaenge"; dict[[2]] <- "Koerperlaenge"; dict[[3]] <- "Einschnitt"; dict[[4]] <- "Papierstaerke"
+
+    # Dataframes laden und Variablen zuweisen
+    A = c(data()$Fluegellaenge)
+    B = c(data()$Koerperlaenge)
+    C = c(data()$Einschnitt)
+    D = c(data()$Papierstaerke)
+    res = c(data()$Flugdauer)
+    
+    vp_df <- data.frame(A, B, C, D, res)%>%
+      mutate(X = get(input$x), Y = get(input$y))
+    
+    #Nur Effekte anzeigen, falls unterschiedliche Faktoren:
+    if (input$x != input$y) {
+      
+      #Dynamische Achsenbeschriftung
+      xfactor <- list(
+        title = paste(input$x, " (", dict[input$x], ")", sep = "")
+      )
+      yfactor <- list(
+        title = paste(input$y, " (", dict[input$y], ")", sep = "")
+      )
+    
+    #Wahlmöglichkeit, ob mit oder ohne Wechselwirkung:
+    if (input$hw_ww == TRUE){
+      lm_vp <- lm(res ~ X + Y + X*Y, data = vp_df) # Mit Wechselwirkungen
+    }
+    
+    else{
+      lm_vp <- lm(res ~ X + Y, data = vp_df) # Nur Haupteffekte
+    }
+    
+    #2-D Gitter erstellen mit allen möglichen Kombinationen der Faktoren
+    grid <- expand.grid(X = seq(-1,1, by = 0.05), Y = seq(-1,1, by = 0.05))
+    
+    #Für das Gitter mit dem linearen Modell die Flugdauer vorhersagen
+    grid$predict <- predict(lm_vp, grid)
+    
+    #Plot erstellen:
+    plot_contour <- plot_ly(data = grid, type = "contour", x = ~X, y = ~Y, z = ~predict) %>% 
+      layout(xaxis = xfactor, yaxis = yfactor) %>%
+      colorbar(title = "Flugdauer")
+    
+    plot_contour
+    }
+
+  })
+  
+  #Residuenverlauf:
+  observeEvent(input$add_residuals, {
+    .values$viewer$append_tab(
+      tab = tabPanel(
+        title = "Residuen-Verlauf",
+        value = "residuals",
+        plotOutput(
+          outputId = ns("residuals")
+        )
+      )
+    )
+  })
+  
+  output$residuals <- renderPlot({
+    
+    # Dataframes laden und Variablen zuweisen# Data Frame Start
+    A = c(data()$Fluegellaenge)
+    B = c(data()$Koerperlaenge)
+    C = c(data()$Einschnitt)
+    D = c(data()$Papierstaerke)
+    response = c(data()$Flugdauer)
+
+    vp_df <- data.frame(A, B, C, D, response)
+    lm <- lm(response ~ A+B+C+D, data = vp_df) #Lineares Modell erstellen
+    
+    #Referenzmodell extrahieren:
+    vp_df_ref <- vp_df %>%
+      filter(A =="0")
+    
+    #Versuchsnummer einfügen:
+    runorder <- c(seq(1,as.numeric(nrow(vp_df_ref)), by = 1))
+    
+    vp_df_ref <- vp_df_ref%>%
+      mutate(runorder = runorder) %>% 
+      mutate(res = vp_df_ref$response - predict(lm, vp_df_ref))
+    
+    #Residuen vs. Anzahl der Versuche
+    plot_residuals <- ggplot(data = vp_df_ref, aes(x = runorder, y = res)) + 
+      geom_point() + 
+      geom_hline(yintercept = 0, col = "black", linetype = "dashed") + 
+      ggtitle("Zeitlicher Verlauf der Residuen") + 
+      xlab("Versuchsnummer") + ylab(expression(hat(epsilon))) + 
+      ylim((0 - abs(max(vp_df_ref$res))), (0 + max(abs(vp_df_ref$res)))) +
+      theme(legend.title=element_blank()) +
+      theme(strip.background = element_rect(fill = "lightblue", color = "darkslategray"),
+            strip.text = element_text(size = 16),
+            panel.spacing = unit(1, "lines"),
+            plot.title = element_text(size = 18, hjust = 0.5),
+            axis.text = element_text(size = 14),
+            axis.title = element_text(size = 16),
+            legend.text=element_text(size=14))
+    
+    plot_residuals
+  })
+  
+  #QQ-Plot für das Referenzmodell
+  observeEvent(input$add_residuals2, {
+    .values$viewer$append_tab(
+      tab = tabPanel(
+        title = "Residuen QQ-Plot",
+        value = "residuals2",
+        plotOutput(
+          outputId = ns("residuals2")
+        )
+      )
+    )
+  })
+  
+  output$residuals2 <- renderPlot({
+    
+    # Dataframes laden und Variablen zuweisen
+    A = c(data()$Fluegellaenge)
+    B = c(data()$Koerperlaenge)
+    C = c(data()$Einschnitt)
+    D = c(data()$Papierstaerke)
+    response = c(data()$Flugdauer)
+    
+    vp_df <- data.frame(A, B, C, D, response)
+    lm <- lm(response ~ A+B+C+D, data = vp_df) #Lineares Modell erstellen
+    
+    #Referenzmodell extrahieren:
+    vp_df_ref <- vp_df %>%
+      filter(A =="0")
+    
+    #Versuchsnummer einfügen:
+    runorder <- c(seq(1,as.numeric(nrow(vp_df_ref)), by = 1))
+    
+    vp_df_ref <- vp_df_ref%>%
+      mutate(runorder = runorder) %>% 
+      mutate(res = vp_df_ref$response - predict(lm, vp_df_ref))
+    
+    #Shapiro-Wilk-Test auf Normalverteilung der Residuen:
+    
+    p <- round(shapiro.test(vp_df_ref$res)[[2]],2)
+    
+    if(p < input$n) {
+      label = paste("Normalverteilung mit p = ", p, " < ", input$n, " NICHT gegeben!")
+    }
+    else {
+      label = paste("Normalverteilung mit p = ", p, " > ", input$n, " gegeben!")
+    }
+    
+    #Residuen vs. Anzahl der Versuche
+    plot_res_qq <- ggplot(data = vp_df_ref, aes(sample = res)) +
+      stat_qq() + stat_qq_line() + xlab("Normalverteilte Residuen") + ylab("Empirische Residuen") + 
+      annotate("text", label = label, x = -Inf, y = Inf, hjust = 0, vjust = 1, size = 10)
+    
+    plot_res_qq
+    
+  })
+  
+  observeEvent(input$add_intercept, {
+    .values$viewer$append_tab(
+      tab = tabPanel(
+        title = "Interceptvergleich",
+        value = "intercept",
+        plotOutput(
+          outputId = ns("comp_pred")
+        )
+      )
+    )
+  })
+  
+  #Vergleich Versuchsplanung und Vorhersage (Referenzmodell)
+  output$comp_pred <- renderPlot({
+    
+    # Dataframes laden und Variablen zuweisen
+    A = c(data()$Fluegellaenge)
+    B = c(data()$Koerperlaenge)
+    C = c(data()$Einschnitt)
+    D = c(data()$Papierstaerke)
+    response = c(data()$Flugdauer)
+    
+    vp_df <- data.frame(A, B, C, D, response)
+    lm_vp <-  lm(response ~ A + B + C + D, data = vp_df) #Lineares Modell erstellen
+    
+    #Refernzmodell extrahieren:
+    vp_ref <- vp_df %>%
+      filter(A =="0")
+    
+    #Modellwerte vs reale Werte:
+    predicted_response <- coef(lm_vp)[[1]]
+    real_response <- mean(vp_ref$response)
+
+    plot <- ggplot(data = vp_ref, aes(x = seq(1:16), y = response)) + geom_point() + 
+      geom_hline(aes(yintercept = predicted_response, col = "Vorhersage"), linetype = "dashed") + 
+      geom_hline(aes(yintercept = real_response, col = "Messung"), linetype = "dashed") + 
+      scale_color_manual(name = "Referenzmodell", values = c(Vorhersage = "blue", Messung = "red")) + 
+      xlab("Versuchsnummer") + ylab("Flugdauer [s]") 
+    
+    plot
+    
+    }
+  )
+  
+  data_selector_return <- callModule(
+    module = data_selector,
+    id = "id_data_selector",
+    .values = .values
+  )
+}

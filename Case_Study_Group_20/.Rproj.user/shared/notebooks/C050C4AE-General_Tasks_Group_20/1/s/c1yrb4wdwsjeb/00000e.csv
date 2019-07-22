@@ -1,0 +1,4 @@
+"0","#Wanted ID:"
+"0","ID_wanted <- ""K1BE2-104-1041-32049"""
+"0","ID_Car <- Bestandteile_Fahrzeuge_complete %>% filter(ID_Motor == ID_wanted) %>% dplyr::select(""ID_Fahrzeug"")"
+"0","Zulassungen %>% filter(IDNummer == ID_Car[[1]]) %>% dplyr::select(""Gemeinden"")"

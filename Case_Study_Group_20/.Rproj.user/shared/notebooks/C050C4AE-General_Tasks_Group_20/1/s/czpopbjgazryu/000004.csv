@@ -1,0 +1,8 @@
+"0","fit.gamma <- fitdist(df_combi$delay, ""gamma"")
+"
+"2","NaNs wurden erzeugt"
+"2","NaNs wurden erzeugt"
+"0","fit.gamma <- fitdist(df_combi$delay, ""gamma"")"
+"2","NaNs wurden erzeugt"
+"2","NaNs wurden erzeugt"
+"0","plot(fit.gamma)"
