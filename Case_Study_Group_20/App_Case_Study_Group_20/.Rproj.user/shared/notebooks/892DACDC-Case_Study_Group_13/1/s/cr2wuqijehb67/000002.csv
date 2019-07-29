@@ -1,0 +1,8 @@
+"0","Critical_Vehicles<-left_join(Critical_Vehicles,count(Critical_Components, Factory_ID, sort = TRUE, name = ""Amount_Critical_Gear_Systems_Factory""),c(""Factory_ID""))  #total produced critical gear systems"
+"0","K3SG1_Factory<-select(Component_K3SG1,Werksnummer.x)%>%"
+"0","  rename(Factory_ID=Werksnummer.x)"
+"0","K3SG2_Factory<-select(Component_K3SG2,Werksnummer)%>%"
+"0","  rename(Factory_ID=Werksnummer)"
+"0","All_Components_Factory<-rbind(K3SG1_Factory,K3SG2_Factory)"
+"0","Critical_Vehicles<-left_join(Critical_Vehicles,count(All_Components_Factory, Factory_ID, sort = TRUE, name = ""Amount_Gear_Systems_Factory""),c(""Factory_ID""))  #total gear systems"
+"0",""

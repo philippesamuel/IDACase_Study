@@ -1,0 +1,9 @@
+"0","Fahrzeuge_ID_2 <- read_delim(""Fahrzeug/Fahrzeuge_OEM1_Typ12.csv"", 
+                                   "";"", escape_double = FALSE, 
+                                   col_types = cols(Fehlerhaft = col_logical(), 
+                                                    Fehlerhaft_Datum = col_date(format = ""%Y-%m-%d""), 
+                                                    Produktionsdatum = col_date(format = ""%Y-%m-%d""), 
+                                                    X1 = col_skip(), X1_1 = col_skip()), trim_ws = TRUE)
+"
+"2","Missing column names filled in: 'X1' [1]"
+"2","Duplicated column names deduplicated: 'X1' => 'X1_1' [2]"

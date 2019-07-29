@@ -1,0 +1,6 @@
+"0","Factories_3$V3<-substring(Factories_3$V3,2,3) #removing the O in front of the Factory ID"
+"0","Factories<-rbind(top_n(Factories_1,22),Factories_2[,1:5])%>%"
+"0","  rbind(Factories_3)%>% #creating one dataframe with the data of all the factories"
+"0","  rename(Zip_Code_Factory=V1,Municipality_Factory=V2,Factory_ID=V3,Latitude_Factory=V4,Longitude_Factory=V5)%>%"
+"0","  transform(Factory_ID=as.numeric(Factory_ID),Latitude_Factory=as.numeric(levels(Latitude_Factory))[Latitude_Factory],Longitude_Factory=as.numeric(levels(Longitude_Factory))[Longitude_Factory]) #transforming the Factory_ID from a char string to num"
+"0","Factories<-Factories[,c(1,2,3,5,4)] #Puting longitude first"

@@ -1,0 +1,8 @@
+"0","Bestandteile_Fahrzeuge_OEM1_Typ11 <- read_delim(""Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM1_Typ11.csv"", 
+                                                "";"", escape_double = FALSE, 
+                                                col_types = cols(ID_Karosserie = col_skip(), 
+                                                                 ID_Schaltung = col_skip(), ID_Sitze = col_skip(), 
+                                                                 X1 = col_skip()), trim_ws = TRUE)
+"
+"2","Error: 'Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM1_Typ11.csv' does not exist in current working directory ('C:/Users/sahid/AppData/Local/Temp/Temp1_09_SoSe19_IDA_CaseStudy.zip').
+"

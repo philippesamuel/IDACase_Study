@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1563815288704.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "A59D3030",
+    "lastKnownWriteTime" : 1563815281,
+    "last_content_update" : 1563815281,
+    "path" : "D:/UNI/IDA CaseStudy/CaseStudy/13_SoSe19_IDA_CaseStudy/13_SoSe19_IDA_CaseStudy/Case_Study_App_Group_13.R",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "21,37",
+        "scrollLine" : "8"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1564340702803.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3944976772",
+    "id" : "1FDB8551",
+    "lastKnownWriteTime" : 1564359050,
+    "last_content_update" : 1564359050125,
+    "path" : "~/GitHub/IDACase_Study/Case_Study_Group_20/App_Case_Study_Group_20/Case_Study_App_Group_20.R",
+    "project_path" : "Case_Study_App_Group_20.R",
+    "properties" : {
+        "cursorPosition" : "128,0",
+        "scrollLine" : "110"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

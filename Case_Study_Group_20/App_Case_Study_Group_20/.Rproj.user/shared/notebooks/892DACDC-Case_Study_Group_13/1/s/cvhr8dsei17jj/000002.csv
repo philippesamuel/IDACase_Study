@@ -1,0 +1,2 @@
+"0","Geodata_municipalities<-Geodata_municipalities[,3:6]%>%"
+"0","  rename(Zip_Code_Registration=Postleitzahl,Municipality_Registration=Gemeinde,Longitude_Registration=Laengengrad,Latitude_Registration=Breitengrad)"
