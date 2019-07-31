@@ -46,11 +46,9 @@ if(!require(tidyr)){
 }
 
 #### Loading the final RData file ####
-# May return an error when run manually so click run app button
 load("Final_Data_Group_20_original.RData")
 
-# Preparing the icons for the heatmap  
-
+#Car-Icons as a symbol for the municipalities
 car_icon <- makeIcon(
   iconUrl = "Additional_Files_Group_20/car.png",
   iconWidth = 24, 
@@ -59,8 +57,7 @@ car_icon <- makeIcon(
   iconAnchorY =12
 )
 
-#### Writing the UI function ####
-#Reihenfolge etc. ändern!!!
+#### Create Layout #### 
 ui <- fluidPage(
 
   fluidRow(
@@ -69,15 +66,13 @@ ui <- fluidPage(
     
     fluidRow( 
       
-      column(12,
-             
-             # This will create a space for us to display our map
+      #Output space in which to plot the map
+      column(12, #Size
              leafletOutput(outputId = "heatmap", height = 600)
-             
       )
     ),
     
-    # Including a date range input button to allow users to define time ranges.
+    #Include an input field to let users define the banDate
     column(4,
            dateInput(
              "banDate", 
@@ -89,25 +84,25 @@ ui <- fluidPage(
              value = "2012-01-31")
     ),
     
-    # Including a select input button to allow users to filter by zip code.
+    # Include a selector to let users to chose the ban zip code
     column(4,
            selectInput("zipCode", 
                        "Select a zip-code: ", 
                        choices = sort((unique(complete_information$Postleitzahl))))
     ),
     
+    # Include a selector to let users to chose the ban region
     column(4,
            selectInput("regionCode", 
                        "Select a region-code: ", 
                        choices = append("NONE", sort(unique(complete_information$Region))))
-    
     )
   ),
   
   fluidRow(
     br(),
     
-    # Displaying the vehicles whose owners need are affected by the ban
+    # Output space for the affected car owner plot
     column(12, 
            plotOutput('affected')
     )
@@ -117,7 +112,7 @@ ui <- fluidPage(
     
     br(),
     
-    # Displaying the table of affected cars
+    # Output space for the complete information table
     column(12, 
            h4(strong("Available data on cars in all municipalities"), align = "center"),
            dataTableOutput('table_diesel_vehicles'))
@@ -127,10 +122,14 @@ ui <- fluidPage(
   hr(), 
   br(),
 
-  plotOutput(outputId = "plot")
+  fluidRow(
+  
+  #Output space for the diesel registration plot
+  plotOutput(outputId = "registration_plot")
+  )
 )
 
-#### Writing the server function ####
+#### Server function - calculations, plot creation, etc ####
 server <- function(input, output) {
   
   # Filtering the data based on input (reactive)
@@ -141,6 +140,7 @@ server <- function(input, output) {
     complete_information %>%
       filter(Zulassung < input$banDate) %>%
         filter(!(Postleitzahl == input$zipCode & ID_Motor == "Diesel")) %>%
+      #Add columns for the total number of cars and the percentage of diesel cars in region
           mutate(Anteil_Diesel = sum(ID_Motor == "Diesel")/NROW(ID_Motor), Gesamt_Autos = NROW(ID_Motor))
   }
     else {
@@ -149,17 +149,18 @@ server <- function(input, output) {
           group_by(Region) %>%
             filter(Zulassung < input$banDate) %>%
               filter(!(Region == input$regionCode & ID_Motor == "Diesel")) %>%
+        #Add columns for the total number of cars and the percentage of diesel cars in region
                 mutate(Anteil_Diesel = sum(ID_Motor == "Diesel")/NROW(ID_Motor), Gesamt_Autos = NROW(ID_Motor))
      }
   })
   
   # Render plot -> ändern so dass der Graph mit betroffenen Personen angezeigt wird!
-  output$plot <- renderPlot({
+  output$registration_plot <- renderPlot({
     
-    # Call reactive function to filter data based on input
+    #rename for simplicity reason
     select_data <- filter_data()
     
-    # Displaying a bar plot because our only variable, x(date), is discrete
+    # Displaying a bar plot the discrete variable date
     ggplot(select_data, aes(x = Zulassung)) + 
       geom_bar(color = "indianred1", fill = "indianred1") + 
       
@@ -183,7 +184,7 @@ server <- function(input, output) {
         breaks = pretty_breaks()
       ) +
       
-      # Rotating the x axis labels so they're not too crowded
+      # Rotating the x axis labels so they're not too crowded for large date ranges
       theme(axis.text.x = element_text(angle = 45, hjust = 1))
   })
   
@@ -191,18 +192,16 @@ server <- function(input, output) {
   output$table_diesel_vehicles <- renderDataTable(complete_information)
   
   # Create the heat map
-  # Filter aut the data from filter_data (Everything after the ban date + 
-  #everything before the ban date in the ban location that is a diesel)
-  
   output$heatmap <- renderLeaflet({
     
+    #Reduce data to one entry per municipality, since all relevant column entries are equal for the same municipality
       Heatmap_Data <- filter_data()[match(
       unique(filter_data()$Gemeinden), 
       filter_data()$Gemeinden),]
     
     leaflet(data = Heatmap_Data) %>% 
       
-      # Setting the view over Germany
+      # Setting the default view over Germany
       setView(lng = 10.3, lat = 51.01, zoom = 6) %>% 
       
       addTiles() %>%
@@ -218,7 +217,7 @@ server <- function(input, output) {
         radius = 18
       ) %>%
       
-      # Adding popups for each municipality with details of the registered cars in that city
+      # Adding popups for each municipality with details about the registered cars in that city
       addMarkers(
         leaflet(data = Heatmap_Data),
         group = 'detail',
@@ -236,19 +235,35 @@ server <- function(input, output) {
         icon = car_icon
         ) %>%
       
-      groupOptions("detail", zoomLevels = 8:18) %>%
-      groupOptions("heatmap", zoomLevels = 5:7)
+      groupOptions("detail", zoomLevels = 8:18) %>% #shows the markes on this zoom level
+      groupOptions("heatmap", zoomLevels = 6:7) #shows the heatmap on this zoom level
   })
   
+  #Plot of the affected car owners - Sollte abgeändert/ergänzt werden, Verhältnisplots etc. wie besprochen
   output$affected <- renderPlot({
 
+    #Filter the diesel cars in the ban region
+    
+    # region_cars <- complete_information %>%
+    #   ungroup() %>%
+    #     group_by(Region)%>%
+    #       filter(Zulassung <= input$banDate)%>%
+    #           filter(Region == input$regionCode)%>%
+    #             mutate(Anzahl_Diesel = sum(ID_Motor == "Diesel"), Anzahl_Benzin = sum(ID_Motor == "Benzin"))%>%
+    #               select(Anzahl_Diesel, Anzahl_Benzin)
+    # 
+    # total_cars <- complete_information %>% NROW(ID_Motor)
+    
+    #Prozentualer Anteil der Betroffenen -> muss anders beschriftet werden!
+    #Am besten mehere solcher Plots erstellen und kombinieren
+    #Nachschauen, ob man solche plots einfach durch die Angaben der Prozente erstellen kann 
+    
     plot_data <- complete_information %>%
         ungroup() %>%
-          group_by(Region)%>%
-            filter(Zulassung <= input$banDate)%>%
-              filter(ID_Motor == "Diesel")%>%
-                filter(Region == input$regionCode)%>%
-                  ggplot(aes(x = Region)) + geom_bar() + ggtitle("Affected car owners in ban region: ", input$regionCode)
+          filter(Zulassung <= input$banDate)%>%
+          filter(Region == input$regionCode)%>%
+          group_by(ID_Motor)%>%
+            ggplot(aes(x = Region, fill = ID_Motor)) + geom_bar(position = "fill") + ggtitle("Affected car owners in ban region: ", input$regionCode)
     
     plot_data
     
