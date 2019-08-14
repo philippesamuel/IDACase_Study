@@ -244,28 +244,48 @@ server <- function(input, output) {
 
     #Filter the diesel cars in the ban region
     
-    # region_cars <- complete_information %>%
-    #   ungroup() %>%
-    #     group_by(Region)%>%
-    #       filter(Zulassung <= input$banDate)%>%
-    #           filter(Region == input$regionCode)%>%
-    #             mutate(Anzahl_Diesel = sum(ID_Motor == "Diesel"), Anzahl_Benzin = sum(ID_Motor == "Benzin"))%>%
-    #               select(Anzahl_Diesel, Anzahl_Benzin)
-    # 
-    # total_cars <- complete_information %>% NROW(ID_Motor)
+    region_cars <- complete_information %>%
+      ungroup() %>%
+        group_by(Region)%>%
+          filter(Zulassung <= input$banDate)%>%
+              filter(Region == input$regionCode)%>%
+                mutate(Anzahl_Diesel = sum(ID_Motor == "Diesel"), Anzahl_Benzin = sum(ID_Motor == "Benzin"))%>%
+                  select(Anzahl_Diesel, Anzahl_Benzin)
+    
+    small_cars_df <- data.frame(
+      Motor = c("Diesel", "Benzin"),
+      Number = c(region_cars$Anzahl_Diesel[1], region_cars$Anzahl_Benzin[1])) %>%
+        mutate(partial= Number / sum(Number)) %>%
+          mutate(labels= paste(percent(partial)," (",Number, ")", sep = ""))
+
+    small_cars_bp<- ggplot(small_cars_df, aes(x="", y=Number, fill=Motor)) +
+      geom_bar(width = 0.9, stat = "identity", color= "white")
+    
+    
+    pie <- small_cars_bp + coord_polar("y", start=0)
+    pie +
+      scale_fill_brewer(palette="Greens") + 
+      geom_text(aes(y = Number/2 + c(0, cumsum(Number)[-length(Number)]),
+                    label = labels), size=4) + 
+      ggtitle("Affected car owners in ban region: ", region_cars$Anzahl_Diesel[1]) + 
+      theme(axis.title = element_blank(),
+            plot.title = element_text(face = "bold", size = 16))
+
+
     
     #Prozentualer Anteil der Betroffenen -> muss anders beschriftet werden!
     #Am besten mehere solcher Plots erstellen und kombinieren
     #Nachschauen, ob man solche plots einfach durch die Angaben der Prozente erstellen kann 
     
-    plot_data <- complete_information %>%
-        ungroup() %>%
-          filter(Zulassung <= input$banDate)%>%
-          filter(Region == input$regionCode)%>%
-          group_by(ID_Motor)%>%
-            ggplot(aes(x = Region, fill = ID_Motor)) + geom_bar(position = "fill") + ggtitle("Affected car owners in ban region: ", input$regionCode)
-    
-    plot_data
+    # plot_data <- complete_information %>%
+    #     ungroup() %>%
+    #       filter(Zulassung <= input$banDate)%>%
+    #       filter(Region == input$regionCode)%>%
+    #       group_by(ID_Motor)%>%
+    #         ggplot(aes(x = Region, fill = ID_Motor)) + geom_bar(position = "fill") + ggtitle("Affected car owners in ban region: ", input$regionCode) +
+    #         coord_polar("y")
+    # 
+    # plot_data
     
   })
 }
