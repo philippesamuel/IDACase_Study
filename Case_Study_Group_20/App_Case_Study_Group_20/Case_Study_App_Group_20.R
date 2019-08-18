@@ -77,8 +77,8 @@ ui <- fluidPage(
            dateInput(
              "banDate", 
              "Ban date: ", 
-             min = "2009-01-01", 
-             max = "2016-12-31", #besser dynamisch als maximum und minumum werte im Datensatz
+             min = min(complete_information$Zulassung), 
+             max = max(complete_information$Zulassung), #besser dynamisch als maximum und minumum werte im Datensatz
              format = "dd/mm/yyyy", 
              startview = "year",
              value = "2012-01-31")
@@ -95,7 +95,8 @@ ui <- fluidPage(
     column(4,
            selectInput("regionCode", 
                        "Select a region-code: ", 
-                       choices = append("NONE", sort(unique(complete_information$Region))))
+                       choices = append("NONE", sort(unique(complete_information$Region))),
+                       selected = "01")
     )
   ),
   
@@ -261,7 +262,6 @@ server <- function(input, output) {
     small_cars_bp<- ggplot(small_cars_df, aes(x="", y=Number, fill=Motor)) +
       geom_bar(width = 0.9, stat = "identity", color= "white")
     
-    
     pie <- small_cars_bp + coord_polar("y", start=0)
     pie +
       scale_fill_brewer(palette="Greens") + 
@@ -272,7 +272,6 @@ server <- function(input, output) {
             plot.title = element_text(face = "bold", size = 16))
 
 
-    
     #Prozentualer Anteil der Betroffenen -> muss anders beschriftet werden!
     #Am besten mehere solcher Plots erstellen und kombinieren
     #Nachschauen, ob man solche plots einfach durch die Angaben der Prozente erstellen kann 
