@@ -1,0 +1,1 @@
+"0","Critical_Vehicles<-left_join(Critical_Vehicles,Geodata_municipalities,c(""Municipality_Registration""))"

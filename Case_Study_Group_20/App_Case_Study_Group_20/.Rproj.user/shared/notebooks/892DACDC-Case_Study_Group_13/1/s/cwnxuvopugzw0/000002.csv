@@ -1,0 +1,1 @@
+"0","Critical_Vehicles<-left_join(Critical_Components,Components_Vehicles,c(""Gear_System_Type"",""Manufacturer_ID"",""Factory_ID"",""Gear_System_ID""))"

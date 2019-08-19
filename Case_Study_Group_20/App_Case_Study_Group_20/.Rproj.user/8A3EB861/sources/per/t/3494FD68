@@ -1,0 +1,24 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1563134210545.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1544973839",
+    "id" : "3494FD68",
+    "lastKnownWriteTime" : 1562332458,
+    "last_content_update" : 1563134381783,
+    "path" : "~/Documents/Berlin M2/Data Analytics/New folder/Case_Study_Group_13.Rmd",
+    "project_path" : "Case_Study_Group_13.Rmd",
+    "properties" : {
+        "last_setup_crc32" : "7442A716bb338d19"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

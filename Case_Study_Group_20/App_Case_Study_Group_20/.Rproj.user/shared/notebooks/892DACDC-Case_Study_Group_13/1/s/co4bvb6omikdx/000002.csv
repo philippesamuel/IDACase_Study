@@ -1,0 +1,3 @@
+"0","Registration<-Registration[,2:4]%>%"
+"0","  rename(Vehicle_ID=IDNummer,Municipality_Registration=Gemeinden,Registration_Date=Zulassung)"
+"0","Registration$Registration_Date<-as.Date(Registration$Registration_Date,format=""%d-%m-%Y"")"

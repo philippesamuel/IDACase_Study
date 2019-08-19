@@ -1,0 +1,7 @@
+"0","# Prevents code, but not the results from appearing in the finished file."
+"0","knitr::opts_chunk$set(echo = TRUE)"
+"0","knitr::opts_chunk$set(warning = FALSE)"
+"0","# Dependencies"
+"0","if( !require(readr)){"
+"0","  install.packages(""readr"")"
+"0","}"

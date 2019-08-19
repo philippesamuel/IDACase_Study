@@ -1,0 +1,4 @@
+"0","Components_Vehicles<-rbind(Components_Type11,Components_Type12)%>%"
+"0","  rbind(Components_Type21)%>%"
+"0","  rbind(Components_Type22)%>%"
+"0","  rename(Vehicle_ID=ID_Fahrzeug)"

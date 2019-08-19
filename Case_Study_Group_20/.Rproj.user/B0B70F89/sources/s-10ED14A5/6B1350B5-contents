@@ -1,0 +1,96 @@
+---
+title: "Case Study Group 20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "D:/UNI/IDA CaseStudy/Data/") #Set working directory
+```
+***
+## Libraries Import
+
+The first step is to import the required libraries for the rest of our script to wor:
+
+```{r library_import, message=FALSE, warning=FALSE}
+if(!require(dplyr)){
+  install.packages("dplyr")
+  require(dplyr)
+}
+
+if(!require(data.table)){
+  install.packages("data.table")
+  require(data.table)
+}
+
+if(!require(ggplot2)){
+  install.packages("ggplot2")
+  require(ggplot2)
+}
+
+if(!require(tidyverse)){
+  install.packages("tidyverse")
+  require(tidyverse)
+}
+
+if(!require(readr)){
+  install.packages("readr")
+  require(readr)
+}
+```
+
+The following overview should give an impression of required data base:
+
+We want to have the following information in our final data frame:
+  - Registration date for every car
+  - Registration commune
+    - Post code of the commune
+    - Geodata for the commune
+  - Engine type (Diesel vs. Petrol)
+
+**Import relevant data**
+
+```{r}
+#Car-IDs -> Faulty/Broken car? -> Don't include if ban is after failure date
+Fahrzeuge_ID_1 <- read_csv("Fahrzeug/Fahrzeuge_OEM1_Typ11.csv", 
+                                 col_types = cols(Fehlerhaft = col_logical(), 
+                                                  Fehlerhaft_Datum = col_date(format = "%Y-%m-%d"), 
+                                                  Produktionsdatum = col_date(format = "%Y-%m-%d"), 
+                                                  X1 = col_skip(), X1_1 = col_skip()))
+
+Fahrzeuge_ID_2 <- read_delim("Fahrzeug/Fahrzeuge_OEM1_Typ12.csv", 
+                                   ";", escape_double = FALSE, 
+                                   col_types = cols(Fehlerhaft = col_logical(), 
+                                                    Fehlerhaft_Datum = col_date(format = "%Y-%m-%d"), 
+                                                    Produktionsdatum = col_date(format = "%Y-%m-%d"), 
+                                                    X1 = col_skip(), X1_1 = col_skip()), trim_ws = TRUE)
+
+Fahrzeuge_ID_3 <- read_delim("Fahrzeug/Fahrzeuge_OEM2_Typ21.csv", 
+                                   ";", escape_double = FALSE, 
+                                   col_types = cols(Fehlerhaft = col_logical(), 
+                                                    Fehlerhaft_Datum = col_date(format = "%Y-%m-%d"), 
+                                                    Produktionsdatum = col_date(format = "%Y-%m-%d"), 
+                                                    X1 = col_skip(), X1_1 = col_skip()), trim_ws = TRUE)
+
+Fahrzeuge_ID_4 <- read_delim("Fahrzeug/Fahrzeuge_OEM2_Typ22.csv", 
+                                   ";", escape_double = FALSE, 
+                                   col_types = cols(Fehlerhaft = col_logical(), 
+                                                    Fehlerhaft_Datum = col_date(format = "%Y-%m-%d"), 
+                                                    Produktionsdatum = col_date(format = "%Y-%m-%d"), 
+                                                    X1 = col_skip(), X1_1 = col_skip()), trim_ws = TRUE)
+
+#Engine-IDs -> Diesel vs. Petrol
+Fehler_Fahrzeuge_1 <- fread('Fahrzeug/Fahrzeuge_OEM1_Typ11.csv', header=TRUE)
+Fehler_Fahrzeuge_2 <- fread('Fahrzeug/Fahrzeuge_OEM1_Typ12.csv', header=TRUE)
+Fehler_Fahrzeuge_3 <- fread('Fahrzeug/Fahrzeuge_OEM2_Typ21.csv', header=TRUE)
+Fehler_Fahrzeuge_4 <- fread('Fahrzeug/Fahrzeuge_OEM2_Typ22.csv', header=TRUE)
+
+#Registration date and place
+Zulassungen <- fread('Zulassungen/Zulassungen_alle_Fahrzeuge.csv', header=TRUE)
+
+#Gedata of place:
+Geodata <- fread('Geodaten/Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv', header=TRUE)
+
+
+```
+

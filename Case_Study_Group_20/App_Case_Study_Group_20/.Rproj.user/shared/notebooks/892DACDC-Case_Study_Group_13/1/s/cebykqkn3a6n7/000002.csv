@@ -1,0 +1,3 @@
+"0","Vehicles<-rbind(Vehicles_Type11,Vehicles_Type12)%>%"
+"0","  rbind(Vehicles_Type21)%>%"
+"0","  rbind(Vehicles_Type22)"

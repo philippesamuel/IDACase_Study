@@ -1,0 +1,291 @@
+#### Importing the required libraries ####
+library(shiny)
+library(ggplot2)
+library(magrittr)
+library(scales)
+library(dplyr)
+library(leaflet)
+library(leaflet.extras)
+library(tidyr)
+
+#### Loading the final RData file ####
+# May return an error when run manually so click run app button
+load("Final_Data_Group_13.RData") 
+
+
+# Getting a table of cars per Municipality_Registration
+#Critical_Vehicles%>% group_by(Municipality_Registration,Longitude_Registration,Latitude_Registration) %>% summarize(count=n())
+Heatmap_Data <- na.omit(Critical_Vehicles[match(
+  unique(Critical_Vehicles$Municipality_Registration), 
+  Critical_Vehicles$Municipality_Registration),])
+
+# Getting a table of cars per Factory
+Critical_Factory_Location <- Critical_Vehicles[match(
+  unique(Critical_Vehicles$Factory_ID), 
+  Critical_Vehicles$Factory_ID),]
+Critical_Factory_Location$Factory_ID <-as.factor(Critical_Factory_Location$Factory_ID)
+
+# Getting a table of the total and failed gear systems produced in each factory
+Critical_Factory_Plot <- gather(
+  rename(Critical_Factory_Location, 
+         Critical = Amount_Critical_Gear_Systems_Factory, 
+         Total = Amount_Gear_Systems_Factory),
+  "Gear_systems_produced",
+  "Amount",
+  Critical,
+  Total)
+Critical_Factory_Plot <- arrange(Critical_Factory_Plot, desc(Gear_systems_produced))
+
+# Preparing the icons for the heatmap  
+factory_icon <- makeIcon(
+  iconUrl = "Additional_Files_Group_13/factory.png",
+  iconWidth = 24, 
+  iconHeight = 24,
+  iconAnchorX = 12, 
+  iconAnchorY = 12
+)
+
+car_icon <- makeIcon(
+  iconUrl = "Additional_Files_Group_13/car.png",
+  iconWidth = 24, 
+  iconHeight = 24,
+  iconAnchorX = 12, 
+  iconAnchorY =12
+)
+
+#### Writing the UI function ####
+ui <- fluidPage(
+  
+  titlePanel("Affected vehicles per municipality"),
+  
+  plotOutput(outputId = "plot"),
+  
+  fluidRow(
+    
+    # Including a date range input button to allow users to define time ranges.
+    column(4,
+           dateRangeInput(
+             "dateRangeInput", 
+             "Date range: ", 
+             start = "2009-01-01", 
+             end = "2010-12-31", 
+             min = "2009-01-01", 
+             max = "2016-12-31", 
+             format = "dd/mm/yyyy", 
+             separator = "to", 
+             startview = "year")
+    ),
+    
+    # Including a select input button to allow users to filter by zip code.
+    column(4,
+           selectInput("zipCodeInput", 
+                       "Select a zip-code: ", 
+                       choices = sort((unique(Critical_Vehicles$Zip_Code_Registration))))
+    )
+    
+  ), fluidRow(
+    
+    br(),
+    
+    # Displaying the table of vehicles with critical gear systems
+    column(12, 
+           h4(strong("Data about the cars with a critical gear system"), align = "center"),
+           dataTableOutput('table_critical_vehicles'))
+  ),
+  
+  br(), 
+  hr(), 
+  br(),
+  
+  titlePanel("Heatmap of the ratio of critical to total registered cars per municipality"),
+  
+  fluidRow( 
+    
+    column(8,
+           
+    # This will create a space for us to display our map
+    leafletOutput(outputId = "heatmap", height = 600)
+    
+    ), 
+    
+    # Including a slider input for users to select the northern latitude limit for vehicle warnings
+    column(4,
+           sliderInput("sliderLatitude",
+                       "Northern latitude limit for vehicle warning",
+                       min=47,
+                       max=55,
+                       value=49,
+                       step=0.25),
+           br(),
+           
+           # Adding instructions for the user to understand and interpret the heat map
+           p(strong("Zoom in to see the cities where critical cars have been registered.")),
+           br(),
+           p(strong("Click on the factories for more info on the gear systems produced.")),
+           br()
+    )
+  ), fluidRow(
+    br(),
+    
+    # Displaying the plot of critical and total gear systems produced by each factory
+    plotOutput(outputId = "plot_factory")
+    
+  ), fluidRow(
+    br(),
+    
+    # Displaying the vehicles whose owners need to be warned, according to the latitude selected by the user
+    column(12, 
+           h4(strong("Cars whose owners have to be warned with the selected northern latitude limit"), align = "center"),
+           dataTableOutput('table')
+    )
+  )
+)
+
+#### Writing the server function ####
+server <- function(input, output) {
+  # Filtering the data based on input (reactive)
+  filter_data <- reactive({
+    
+    # First filter by zip code input
+    filter(Critical_Vehicles, Zip_Code_Registration == input$zipCodeInput) %>% 
+      
+      # Then filter by date range input
+      filter(Registration_Date >= input$dateRangeInput[1] & Registration_Date <= input$dateRangeInput[2])
+    
+  })
+  
+  
+  # Render plot
+  output$plot <- renderPlot({
+    
+    # Call reactive function to filter data based on input
+    select_data <- filter_data()
+    
+    # Displaying a bar plot because our only variable, x(date), is discrete
+    ggplot(select_data, aes(x = Registration_Date)) + 
+      geom_bar(color = "indianred1", fill = "indianred1") + 
+      
+      # Labelling x and y axes
+      xlab("Date") +
+      ylab("Number of affected vehicles") +
+      
+      # Adding a plot title
+      ggtitle("Registration date of affected cars in each municipality") +
+        theme(plot.title = element_text(face = "bold", size = 16, hjust = 0.5)) +
+      
+      # Formatting date labels on x axis
+      scale_x_date( 
+        date_breaks = "1 month",
+        date_labels = "%b %y",
+        date_minor_breaks = "1 week"
+      ) +
+      
+      # Adjusting the y axis breaks to show only integers since y is a count
+      scale_y_continuous(
+        breaks = pretty_breaks()
+      ) +
+      
+      # Rotating the x axis labels so they're not too crowded
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    
+    
+  })
+  
+  # Creating the table of data about all critical vehicles
+  output$table_critical_vehicles <- renderDataTable(Critical_Vehicles)
+  
+  # Create the heat map
+  output$heatmap <- renderLeaflet({
+    
+    leaflet(data=Heatmap_Data) %>% 
+      
+      # Setting the view over Germany
+      setView(lng = 10.3, lat = 51.01, zoom = 6) %>% 
+      
+      addTiles() %>%
+      
+      # Setting up the heatmap with intensity according to ratio of critical to total cars
+      addHeatmap(
+        lng = Heatmap_Data$Longitude_Registration,
+        group ='heatmap', 
+        lat = Heatmap_Data$Latitude_Registration, 
+        intensity = Heatmap_Data$Critical_Total_Ratio,
+        blur =  10, 
+        max = 10, 
+        radius = 50
+      ) %>%
+      
+      # Adding popups for each factory with data about the proportion of failed gear systems produced
+      addMarkers(
+        leaflet(data=Critical_Factory_Location),
+        group ='factories',
+        lng = as.numeric(Critical_Factory_Location$Longitude_Factory), 
+        lat = as.numeric(Critical_Factory_Location$Latitude_Factory),
+        popup = paste(
+          "<b>Factory",
+          Critical_Factory_Location$Factory_ID,
+          '</b><br/>',
+          'City:',
+          Critical_Factory_Location$Municipality_Factory,
+          '<br/>Failed gear systems produced:',
+          Critical_Factory_Location$Amount_Critical_Gear_Systems_Factory,
+          "units</br>Proportion of failed gear systems produced:",
+          round(Critical_Factory_Location$Amount_Critical_Gear_Systems_Factory/sum(Critical_Factory_Location$Amount_Critical_Gear_Systems_Factory)*100,1),
+          "%"),
+        icon = factory_icon
+      ) %>%
+      
+      # Adding popups for each municipality with details of the registered cars in that city
+      addMarkers(
+        leaflet(data = Heatmap_Data),
+        group = 'detail',
+        lng = Heatmap_Data$Longitude_Registration,
+        lat = Heatmap_Data$Latitude_Registration,
+        popup = paste(
+          "<b>City: ",
+          Heatmap_Data$Municipality_Registration,
+          '</b><br/>',
+          "Number of critical cars: ",
+          Heatmap_Data$Amount_Critical_Cars_Same_Municipality),
+        icon = car_icon
+        ) %>%
+      
+      groupOptions("detail", zoomLevels = 7:18) %>%
+      groupOptions("heatmap", zoomLevels = 6) %>%
+      groupOptions("factories", zoomLevels = 6:18) %>%
+      addPolylines(lat=c(input$sliderLatitude,input$sliderLatitude),lng = c(5,16))
+  })
+  
+  # Generating a table of critical vehicles according to the user's input of northern latitude limit
+  output$table <- renderDataTable(filter(Vehicles_non_critical,Latitude_Registration<input$sliderLatitude))
+  
+  # Displaying a plot of the critical and total gear systems produced in each factory
+  output$plot_factory <- renderPlot({
+    
+    ggplot(Critical_Factory_Plot, aes(x = Critical_Factory_Plot$Factory_ID), fill = Gear_systems_produced) + 
+      geom_col(
+        data = Critical_Factory_Plot,
+        aes(x = Factory_ID, y = Amount, fill = Gear_systems_produced),
+        position = position_dodge2(reverse = TRUE)
+      ) +
+      
+      labs(fill = "Gear systems produced") +
+      
+      geom_text(aes(y = Amount+30000, label = Amount), position = position_dodge2(reverse = TRUE, width = 0.9))+
+      
+      # Adding axes and plot titles
+      xlab("Factory") +
+      ylab("Number of gear systems produced") + 
+      ggtitle("Production of gear systems in factories that produced faulty gear systems") +
+        theme(plot.title = element_text(face = "bold", size = 16, hjust = 0.5)) +
+      
+      # Adjusting the labels of the x axis
+      scale_x_discrete(breaks = c("1051","1081","1072"), labels = c("Factory 1051","Factory 1081","Factory 1072"))
+      
+    })
+  
+ 
+}
+
+#### Run Shiny App ####
+shinyApp(ui, server)

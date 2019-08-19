@@ -1,0 +1,1 @@
+"0","Critical_Vehicles<-left_join(Critical_Vehicles,Factories,c(""Factory_ID""))"

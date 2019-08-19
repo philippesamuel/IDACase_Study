@@ -1,0 +1,1 @@
+"0","Critical_Vehicles<-left_join(Critical_Vehicles,count(Critical_Vehicles, Factory_ID, sort = TRUE, name = ""Amount_Critical_Cars_Same_Factory""),c(""Factory_ID""))"

@@ -1,0 +1,308 @@
+---
+title: "Group 16 - Case Study Documentation"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# Prevents code, but not the results from appearing in the finished file.
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_knit$set(root.dir = "D:/UNI/IDA CaseStudy/Data/") #Set working directory
+
+# Dependencies
+if( !require(readr)){
+  install.packages("readr")
+}
+```
+
+## Approach
+Through out our case study analysis, we will be following the workflow:
+![](Additional_Files_Group_16/images/workflow.png) 
+
+# Wrangle
+
+## Import
+We will be employing the help of the **readr** package for speedy importing of the large datasets we have.
+
+```{r}
+library(readr)
+```
+
+### Analysis
+
+We have the following data available:
+
+* Part = Einzelteil
+* Component = Komponente
+* Vehicle = Fahrzeug
+* Geodata = Geodaten
+* Registrations = Zulassungen
+* Logistics delays = Lieferverzüge
+
+With this humongous dataset we need to filter the useful data from the irrelevant ones. For this ordeal, we will consult our task summary:
+
+> Find all the vehicles of type **Type11** and **Type12** that has installed the diesel engine **K1DI1** from the production period, **March 1st 2008** to **May 11th 2012**, for a recall action.
+
+We can infer that we will be needing the **Fahrzeug** for the vehicle type and **Komponente** for the engine.
+
+Later we need to also develop a shiny application to help us find out which of vehicles are registered in a certain municipality for which  **Zulassungen** and **Geodaten** are needed. So we will go ahead and include this data in our import list.
+
+### Importing Fahrzeug
+For our imports, we will use RStudio's GUI readr functionality to make sense of the data better. From **Fahrzeug** we will use the following data files:
+
+* Fahrzeuge_OEM1_Typ11.csv
+* Bestandteile_Fahrzeuge_OEM1_Typ11.csv
+* Fahrzeuge_OEM1_Typ12.csv
+* Bestandteile_Fahrzeuge_OEM1_Typ12.csv
+
+The first two files contains Type 11 vehicles production and parts details. Similarly, the last two files contains information for Type 12 vehicles. For now, we will assign all our imports to variables that have the same name as the files. 
+
+```{r}
+Fahrzeuge_OEM1_Typ12 <- read_delim("Data/Fahrzeug/Fahrzeuge_OEM1_Typ12.csv", 
+                                   ";", escape_double = FALSE, 
+                                   col_types = cols(Fehlerhaft = col_logical(), 
+                                                    Fehlerhaft_Datum = col_date(format = "%Y-%m-%d"), 
+                                                    Produktionsdatum = col_date(format = "%Y-%m-%d"), 
+                                                    X1 = col_skip(), X1_1 = col_skip()), 
+                                   trim_ws = TRUE)
+
+Bestandteile_Fahrzeuge_OEM1_Typ12 <- read_delim("Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM1_Typ12.csv", 
+                                                     ";", escape_double = FALSE, 
+                                                      col_types = cols(ID_Fahrzeug = col_character(), 
+                                                                       ID_Karosserie = col_skip(), 
+                                                                       ID_Schaltung = col_skip(), 
+                                                                       ID_Sitze = col_skip(), X1 = col_skip()), 
+                                                trim_ws = TRUE)
+
+Fahrzeuge_OEM1_Typ11 <- read_csv("Fahrzeug/Fahrzeuge_OEM1_Typ11.csv", 
+                                 col_types = cols(Fehlerhaft = col_logical(), 
+                                                  Fehlerhaft_Datum = col_date(format = "%Y-%m-%d"), 
+                                                  Produktionsdatum = col_date(format = "%Y-%m-%d"), 
+                                                  X1 = col_skip(), X1_1 = col_skip()))
+
+Bestandteile_Fahrzeuge_OEM1_Typ11 <- read_delim("Fahrzeug/Bestandteile_Fahrzeuge_OEM1_Typ11.csv", 
+                                                ";", escape_double = FALSE, 
+                                                col_types = cols(ID_Karosserie = col_skip(), 
+                                                                 ID_Schaltung = col_skip(), ID_Sitze = col_skip(), 
+                                                                 X1 = col_skip()), trim_ws = TRUE)
+
+```
+
+### Importing Komponente
+From **Komponente** we will use the following data file:
+
+* Komponente_K1DI1.csv
+
+The file above contains relevant K1DI1 engines production and parts details.
+
+```{r}
+Komponente_K1DI1 <- read_csv("Data/Komponente/Komponente_K1DI1.csv", 
+                             col_types = cols(Fehlerhaft.x = col_logical(), 
+                                              Fehlerhaft.y = col_logical(), Fehlerhaft_Datum = col_date(format = "%Y-%m-%d"), 
+                                              Fehlerhaft_Datum.x = col_date(format = "%Y-%m-%d"), 
+                                              Fehlerhaft_Datum.y = col_date(format = "%Y-%m-%d"), 
+                                              Fehlerhaft_Fahrleistung = col_double(), 
+                                              Fehlerhaft_Fahrleistung.y = col_double(), 
+                                              Herstellernummer = col_double(), 
+                                              Herstellernummer.y = col_double(), 
+                                              ID_Motor = col_character(), ID_Motor.y = col_character(), 
+                                              Produktionsdatum = col_date(format = "%Y-%m-%d"), 
+                                              Produktionsdatum.x = col_date(format = "%Y-%m-%d"), 
+                                              Produktionsdatum.y = col_date(format = "%Y-%m-%d"), 
+                                              Werksnummer = col_double(), Werksnummer.y = col_double(), 
+                                              X1 = col_skip(), X1_1 = col_skip()))
+```
+
+### Importing Zulassungen and Geodaten
+From **Zulassungen** we will use the one and only data file:
+
+* Zulassungen_alle_Fahrzeuge.csv
+
+And from **Geodaten** we will use:
+
+* Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv
+
+```{r}
+# Zulassungen
+Zulassungen_alle_Fahrzeuge <- read_delim("Data/Zulassungen/Zulassungen_alle_Fahrzeuge.csv", 
+                                         ";", escape_double = FALSE, col_types = cols(X1 = col_skip()), 
+                                         trim_ws = TRUE)
+
+# Geodata
+Geodaten_Gemeinden_v1_2_2017_08_22_TrR <- read_delim("Data/Geodaten/Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv", 
+                                                     ";", escape_double = FALSE, col_types = cols(X = col_skip(), 
+                                                                                                  X1 = col_skip()), locale = locale(decimal_mark = ",", 
+                                                                                                                                    grouping_mark = "."),
+                                                     trim_ws = TRUE)
+```
+
+Now that we have imported the data that we need. It's time to clean and combine them! 
+
+## Tidy & Transform
+
+In our import process, we took care of preparing the data types for each of our data. Now we are fortunate that almost all of the data we need are quite clean and obeys the principles of tidy data with the exception of the engines data. So what's left to be done is mostly data manipulation. For this, we will be employing the help of the **dplyr** package for speedy data manipulation. Our files are large so we need as much help that we can get. We will also use **magritt** for coding convenience.
+
+```{r message=FALSE}
+library(dplyr)
+library(magrittr)
+```
+
+Lets merge Bestandteile_Fahrzeuge_OEM1_Typ11 and Fahrzeuge_OEM1_Typ11 together since they are related. We do the same with the Type 12 vehicles data.
+Since Type 11 and Type 12 data have similar columns, we can merge them into one long tibble through **bind_rows()**.
+
+```{r}
+x <- left_join(Bestandteile_Fahrzeuge_OEM1_Typ11, Fahrzeuge_OEM1_Typ11, by = "ID_Fahrzeug")
+y <- left_join(Bestandteile_Fahrzeuge_OEM1_Typ12, Fahrzeuge_OEM1_Typ12, by = "ID_Fahrzeug")
+car_list <- bind_rows(x,y)
+```
+
+Now that have Type 11 & 12 vehicles production and parts details, we can combine them with the registration details from **Zulassungen**
+so that we get the registration details and the production and parts details in an all in one list. Wohoo!
+
+```{r}
+complete_car_list <- left_join(car_list, Zulassungen_alle_Fahrzeuge, by = c("ID_Fahrzeug" = "IDNummer"))
+```
+
+Next step is to tidy up the K1DI1 component data. By inspecting the data we can see that it has 21 observations! But if we look closely, we notice that it contains repeated variables. This disobeys the principles of tidy date, we will make this right by narrowing the table.
+
+```{r}
+# Select the 3rd set of variables from the left
+engine_3 <- select(Komponente_K1DI1, ID_Motor:Fehlerhaft_Fahrleistung) %>% filter(!is.na(ID_Motor))
+
+# Select the 2nd set of variables from the left and rename variables to match with 3rd set
+engine_2 <- select(Komponente_K1DI1, ends_with(".y")) %>% 
+  filter(!is.na(ID_Motor.y)) %>% 
+  rename(ID_Motor = ID_Motor.y, 
+         Produktionsdatum = Produktionsdatum.y, 
+         Herstellernummer = Herstellernummer.y, 
+         Werksnummer = Werksnummer.y, 
+         Fehlerhaft = Fehlerhaft.y, 
+         Fehlerhaft_Datum = Fehlerhaft_Datum.y, 
+         Fehlerhaft_Fahrleistung = Fehlerhaft_Fahrleistung.y)
+
+# Do the same as above for the 1st set
+engine_1 <- select(Komponente_K1DI1, ends_with(".x")) %>% 
+  filter(!is.na(ID_Motor.x)) %>% 
+  rename(ID_Motor = ID_Motor.x, 
+         Produktionsdatum = Produktionsdatum.x, 
+         Herstellernummer = Herstellernummer.x, 
+         Werksnummer = Werksnummer.x, 
+         Fehlerhaft = Fehlerhaft.x, 
+         Fehlerhaft_Datum = Fehlerhaft_Datum.x, 
+         Fehlerhaft_Fahrleistung = Fehlerhaft_Fahrleistung.x)
+
+# Bind the rows to make a long list
+engine <- bind_rows(engine_3, engine_2, engine_1)
+```
+
+Perfect! Now we can join the engines and vehicle list data that we have processed. It is also helpful to have the positional attributes of the municipalities in each car so we will go ahead and merge the resulting dataset with Geodaten_Gemeinden_v1_2_2017_08_22_TrR.
+
+```{r}
+vehicles <- left_join(complete_car_list, engine, by = "ID_Motor") %>%
+            left_join(Geodaten_Gemeinden_v1_2_2017_08_22_TrR, by = c("Gemeinden" = "Gemeinde"))
+```
+
+To take another step closer to our goal, we will filter the vehicles that have engines produced from March 1st 2008 to May 11th 2012.
+
+```{r}
+defect_vehicles <- filter(vehicles, 
+                          Produktionsdatum.y >= as.Date("2008-3-1", format = "%Y-%m-%d")  &  
+                          Produktionsdatum.y <= as.Date("2012-5-11", format = "%Y-%m-%d"))
+```
+
+Now lets take a break and review, what we have and what needs to be done.
+
+> Find all the vehicles of type **Type11** and **Type12** that has installed the diesel engine **K1DI1** from the production period, **March 1st 2008** to **May 11th 2012**, for a recall action.
+
+We have completed the tasks! But first, we will do a final cleaning to our dataset tailored to the needs of our shiny app. 
+
+```{r}
+tidy_defect_vehicles <- select(defect_vehicles,
+                               VehicleID = ID_Fahrzeug, 
+                               EngineID = ID_Motor, 
+                               EngineProductionDate = Produktionsdatum.y, 
+                               Municipality = Gemeinden, 
+                               Longtitude = Laengengrad, 
+                               Latitude = Breitengrad)
+```
+
+Finally, we will export our dataset.
+
+```{r}
+write_csv(tidy_defect_vehicles, file.path("tidy_data.csv"))
+```
+
+## Additional Data-manipulation
+
+Inside our shiny app we have an additional data-manipulation process. This process needs to fulfill the following task:
+
+> Find all critical cities that has at least 500 registered affected vehicles in it. 
+
+We achieve this task by,
+
+```{r}
+critical_cities <- group_by(tidy_defect_vehicles, Municipality) %>%
+                   summarise(affected_cars = n()) %>% 
+                   filter(affected_cars >= 500)
+```
+
+# Shiny Application Manual
+
+## Overview
+
+### Map Tab
+
+The app has two main tabs, Map and Data. The map contains the controls panel, the map and the action buttons as shown below. In the Map tab, the markers represent the municipalities that have at least 500 affected vehicles registered in them. This number is a fixed functionality in this application.
+
+![](Additional_Files_Group_16/images/1.PNG) 
+
+### Data Tab
+
+The Data tab is shown below and contains a data table where you can view the dataset. Here you can filter the dataset according to the municipality, to the type of vehicles or to the minimum required number of affected vehicles registered in municipalities.
+
+![](Additional_Files_Group_16/images/5.PNG) 
+
+## Functionality
+
+### Action Buttons
+
+In the upper left corner of the maps tab, you can find the action button zoom in, zoom out, and zoom reset. The zoom reset pans and zooms out the map view in order to show Germany as a whole. 
+
+![](Additional_Files_Group_16/images/2.PNG)
+
+### Control Panel
+
+#### Input usage
+
+Input                               | Function
+----------------------------------- | -------------
+Municipality selector               | Changes active municipality
+Number of concentric circle slider  | Changes the number of concentric circles originating at the municipality 
+Area radii input                    | Changes the radii of the concentric areas
+Reset button                        | Resets input value to default
+
+![](Additional_Files_Group_16/images/3.PNG)
+
+#### Bar Chart
+
+You can also scroll down the control panel to reveal the bar chart. The bar chart shows the distribution of affected vehicles over the concentric areas.
+
+![](Additional_Files_Group_16/images/4.PNG)
+
+### Popups
+
+Alternatively, you can also click the concentric areas to see the number of affected vehicles.
+
+![](Additional_Files_Group_16/images/6.PNG)
+
+You can also click the municipality markers to show the number of affected vehicles registered in that municipality.
+
+![](Additional_Files_Group_16/images/7.PNG)
+
+### Dataset Filter
+
+Filter                              | Functionality
+----------------------------------- | -------------
+Municipality selector               | Filters dataset according to the selected municipalities
+Vehicle type                        | Filters dataset acccording to the type of vehicle
+Affected vehicles registered in city  | Minimum required number of affected vehicles registered in municipalities

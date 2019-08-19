@@ -1,0 +1,4 @@
+"0","Critical_Vehicles<-left_join(Critical_Vehicles,count(Critical_Vehicles, Municipality_Registration, sort = TRUE, name = ""Amount_Critical_Cars_Same_Municipality""),c(""Municipality_Registration""))  #total registered critical cars"
+"0","Critical_Vehicles<-left_join(Critical_Vehicles,count(Registration,Municipality_Registration, sort = TRUE, name = ""Amount_Cars_Same_Municipality""),c(""Municipality_Registration""))  #total registered cars"
+"0","Critical_Vehicles$Critical_Total_Ratio <- (Critical_Vehicles$Amount_Critical_Cars_Same_Municipality/Critical_Vehicles$Amount_Cars_Same_Municipality)"
+"0",""

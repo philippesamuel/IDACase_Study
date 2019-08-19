@@ -1,0 +1,303 @@
+---
+title: "Case Study Group 13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+***
+## Libraries Import
+
+The first step is to import the required libraries for the rest of our script to work.
+
+```{r library_import, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(shiny)
+```
+
+## Data Import
+
+Then we proceed with the import of the datasets we will need in the next steps
+
+```{r data_import, message=FALSE,warning=FALSE}
+Part<-read_csv2("Data/Einzelteil/Einzelteil_T21.csv") #<- Not used anymore, since the components and the parts have the same  ID
+Component_K3SG1<-read_csv("Data/Komponente/Komponente_K3SG1.csv")
+Component_K3SG2<-read_csv("Data/Komponente/Komponente_K3SG2.csv")
+Parts_Vehicles_OEM1_Type11<-read_csv2("Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM1_Typ11.csv")
+Parts_Vehicles_OEM1_Type12<-read_csv2("Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM1_Typ12.csv")
+Parts_Vehicles_OEM2_Type21<-read_csv2("Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM2_Typ21.csv")
+Parts_Vehicles_OEM2_Type22<-read_csv2("Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM2_Typ22.csv")
+Vehicles_OEM1_Type11<-read_csv("Data/Fahrzeug/Fahrzeuge_OEM1_Typ11.csv")
+Vehicles_OEM1_Type12<-read_csv2("Data/Fahrzeug/Fahrzeuge_OEM1_Typ12.csv")
+Vehicles_OEM2_Type21<-read_csv("Data/Fahrzeug/Fahrzeuge_OEM2_Typ21.csv")
+Vehicles_OEM2_Type22<-read_csv2("Data/Fahrzeug/Fahrzeuge_OEM2_Typ22.csv")
+Registration<-read_csv2("Data/Zulassungen/Zulassungen_alle_Fahrzeuge.csv")
+Factories_1<-read.csv2("Data/Geodaten/Tier1_Werke_2017-07-11_v1.2_TrR.csv",skip = 1,header=FALSE) #drop the 1st line containing the columnnames because of the problematic "ä" character in Längengrad
+Factories_2<-read.csv2("Data/Geodaten/Tier2_Werke_2017-07-11_v1.2_TrR.csv",skip = 1,header=FALSE) #drop the 1st line containing the columnnames because of the problematic "ä" character in Längengrad
+Factories_3<-read.csv2("Data/Geodaten/OEM_Werke_2017-07-04_TrR.csv",skip = 1,header=FALSE) #drop the 1st line containing the columnnames because of the problematic "ä" character in Längengrad
+Geodata_municipalities<-read_csv2("Data/Geodaten/Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv")
+```
+
+## Tidying the data
+
+Now that the data has been imported, we have to tidy the data.
+We will proceed in this order:  
+
+(@) Data regarding the  components themselves  
+(@) Data regarding the components in the cars  
+(@) Data regarding the vehicles  
+(@) Data regarding the factories  
+(@) Data  regarding the municipalities where cars have been registered  
+(@) Geodata of the municipalities
+
+### Components data
+
+#### For the K3SG1 component
+
+We create a table containing the data on all critical K3SG1 Gear Systems named `Component_K3SG1_Critical`.
+
+```{r tidy_K3SG1}
+Component_K3SG1_Critical<-filter(Component_K3SG1,Fehlerhaft.x==1)%>% # selecting critical components only
+  select(3:9,-Fehlerhaft.x,-Herstellernummer.x,-Werksnummer.x)%>%  # selecting useful columns only
+  rename(Component_Production_Date=Produktionsdatum.x,Critical_Date=Fehlerhaft_Datum.x,Critical_Mileage=Fehlerhaft_Fahrleistung.x)%>% #renaming the columns
+  separate(ID_Schaltung.x,c("Gear_System_Type","Manufacturer_ID","Factory_ID","Gear_System_ID"))%>% # separating the ID columns into 4 new columns: type of component, manufacturer id, factory id and gear system id
+  transform(Manufacturer_ID = as.numeric(Manufacturer_ID))%>% # converting the manufacturer id into a number
+  transform(Factory_ID = as.numeric(Factory_ID))%>% # converting the factory id into a number
+  transform(Gear_System_ID = as.numeric(Gear_System_ID)) # converting the gear system id into a number
+Component_K3SG1_Critical$Component_Production_Date<-as.Date(Component_K3SG1_Critical$Component_Production_Date,format="%d-%m-%Y") # converting date to a user friendlier format
+Component_K3SG1_Critical$Critical_Date<-as.Date(Component_K3SG1_Critical$Critical_Date,format="%d-%m-%Y") # converting date to a user friendlier format
+```
+
+#### For the K3SG2 component
+
+We create a table containing the data on all critical K3SG2 Gear Systems named `Component_K3SG2_Critical`.
+
+```{r tidy_K3SG2}
+Component_K3SG2_Critical<-filter(Component_K3SG2,Fehlerhaft==1)%>% # selecting critical components only
+  select(3:9,-Fehlerhaft,-Herstellernummer,-Werksnummer)%>% # selecting useful columns only
+  rename(Component_Production_Date=Produktionsdatum_Origin_01011970,Critical_Date=Fehlerhaft_Datum,Critical_Mileage=Fehlerhaft_Fahrleistung)%>% #renaming the columns
+  separate(ID_Schaltung,c("Gear_System_Type","Manufacturer_ID","Factory_ID","Gear_System_ID"))%>% # separating the ID columns into 4 new columns: type of component, manufacturer id, factory id and gear system id.
+  transform(Manufacturer_ID = as.numeric(Manufacturer_ID))%>% # converting the manufacturer id into a number
+  transform(Factory_ID = as.numeric(Factory_ID))%>% # converting the factory id into a number
+  transform(Gear_System_ID = as.numeric(Gear_System_ID)) # converting the gear system id into a number
+Component_K3SG2_Critical$Component_Production_Date<-as.Date(Component_K3SG2_Critical$Component_Production_Date,origin = "1970-01-01",format="%d-%m-%Y")# converting date to a user friendlier format
+Component_K3SG2_Critical$Critical_Date<-as.Date(Component_K3SG2_Critical$Critical_Date,format="%d-%m-%Y") # converting date to a user friendlier format
+```
+
+#### Critical components table
+
+We are now able to create a table named `Critical_Components` with the data on all our critical components.
+
+```{r create_critical_components}
+Critical_Components<-rbind(Component_K3SG1_Critical,Component_K3SG2_Critical)
+```
+
+### Data on components onboard vehicles
+
+#### Data on components onboard vehicles per vehicle type
+For each vehicle type we tidy the data.
+```{r tidy_components_per_type}
+Components_Type11<-select(Parts_Vehicles_OEM1_Type11,ID_Schaltung,ID_Fahrzeug)%>%
+  separate(ID_Schaltung,c("Gear_System_Type","Manufacturer_ID","Factory_ID","Gear_System_ID"),"-")%>%
+  filter(Gear_System_Type=="K3SG1")%>%
+  transform(Manufacturer_ID = as.numeric(Manufacturer_ID))%>%
+  transform(Factory_ID = as.numeric(Factory_ID))%>%
+  transform(Gear_System_ID = as.numeric(Gear_System_ID))
+
+Components_Type12<-select(Parts_Vehicles_OEM1_Type12,ID_Schaltung,ID_Fahrzeug)%>%
+  separate(ID_Schaltung,c("Gear_System_Type","Manufacturer_ID","Factory_ID","Gear_System_ID"),"-")%>%
+  filter(Gear_System_Type=="K3SG1")%>%
+  transform(Manufacturer_ID = as.numeric(Manufacturer_ID))%>%
+  transform(Factory_ID = as.numeric(Factory_ID))%>%
+  transform(Gear_System_ID = as.numeric(Gear_System_ID))
+
+Components_Type21<-select(Parts_Vehicles_OEM2_Type21,ID_Schaltung,ID_Fahrzeug)%>%
+  separate(ID_Schaltung,c("Gear_System_Type","Manufacturer_ID","Factory_ID","Gear_System_ID"),"-")%>%
+  filter(Gear_System_Type=="K3SG2")%>%
+  transform(Manufacturer_ID = as.numeric(Manufacturer_ID))%>%
+  transform(Factory_ID = as.numeric(Factory_ID))%>%
+  transform(Gear_System_ID = as.numeric(Gear_System_ID))
+
+Components_Type22<-select(Parts_Vehicles_OEM2_Type22,ID_Schaltung,ID_Fahrzeug)%>%
+  separate(ID_Schaltung,c("Gear_System_Type","Manufacturer_ID","Factory_ID","Gear_System_ID"),"-")%>%
+  filter(Gear_System_Type=="K3SG2")%>%
+  transform(Manufacturer_ID = as.numeric(Manufacturer_ID))%>%
+  transform(Factory_ID = as.numeric(Factory_ID))%>%
+  transform(Gear_System_ID = as.numeric(Gear_System_ID))
+```
+
+#### Data on components onboard vehicles (all types)
+We now merge the data on each vehicle in a dataset containing the data on the components onboard the vehicles of all types, named `Components_Vehicles`.
+
+```{r create_components_vehicles}
+Components_Vehicles<-rbind(Components_Type11,Components_Type12)%>%
+  rbind(Components_Type21)%>%
+  rbind(Components_Type22)%>%
+  rename(Vehicle_ID=ID_Fahrzeug)
+```
+
+### Vehicles Data
+
+#### Data on the vehicles per vehicle type
+For each vehicle type we tidy the data.
+```{r tidy_vehicles_type}
+Vehicles_Type11<-filter(Vehicles_OEM1_Type11,Fehlerhaft==1)%>%
+  select(ID_Fahrzeug,Produktionsdatum,Werksnummer,Fehlerhaft_Datum,Fehlerhaft_Fahrleistung)%>%
+  rename(Vehicle_ID=ID_Fahrzeug,Production_Date=Produktionsdatum,Factory_ID=Werksnummer,Critical_Date=Fehlerhaft_Datum,Critical_Mileage=Fehlerhaft_Fahrleistung)
+Vehicles_Type11$Production_Date<-as.Date(Vehicles_Type11$Production_Date,format="%d-%m-%Y")
+Vehicles_Type11$Critical_Date<-as.Date(Vehicles_Type11$Critical_Date,format="%d-%m-%Y")
+
+Vehicles_Type12<-filter(Vehicles_OEM1_Type12,Fehlerhaft==1)%>%
+  select(ID_Fahrzeug,Produktionsdatum,Werksnummer,Fehlerhaft_Datum,Fehlerhaft_Fahrleistung)%>%
+  rename(Vehicle_ID=ID_Fahrzeug,Production_Date=Produktionsdatum,Factory_ID=Werksnummer,Critical_Date=Fehlerhaft_Datum,Critical_Mileage=Fehlerhaft_Fahrleistung)
+Vehicles_Type12$Production_Date<-as.Date(Vehicles_Type12$Production_Date,format="%d-%m-%Y")
+Vehicles_Type12$Critical_Date<-as.Date(Vehicles_Type12$Critical_Date,format="%d-%m-%Y")
+
+Vehicles_OEM2_Type21$Production_Date<-as.Date(Vehicles_OEM2_Type21$Produktionsdatum_Origin_01011970,origin = "1970-01-01",format="%d-%m-%Y")
+Vehicles_Type21<-filter(Vehicles_OEM2_Type21,Fehlerhaft==1)%>%
+  select(ID_Fahrzeug,Production_Date,Werksnummer,Fehlerhaft_Datum,Fehlerhaft_Fahrleistung)%>%
+  rename(Vehicle_ID=ID_Fahrzeug,Factory_ID=Werksnummer,Critical_Date=Fehlerhaft_Datum,Critical_Mileage=Fehlerhaft_Fahrleistung)
+Vehicles_Type21$Critical_Date<-as.Date(Vehicles_Type21$Critical_Date,format="%d-%m-%Y")
+
+Vehicles_OEM2_Type22$Production_Date<-as.Date(Vehicles_OEM2_Type22$Produktionsdatum_Origin_01011970,origin = "1970-01-01",format="%d-%m-%Y")
+Vehicles_Type22<-filter(Vehicles_OEM2_Type22,Fehlerhaft==1)%>%
+  select(ID_Fahrzeug,Production_Date,Werksnummer,Fehlerhaft_Datum,Fehlerhaft_Fahrleistung,Production_Date)%>%
+  rename(Vehicle_ID=ID_Fahrzeug,Factory_ID=Werksnummer,Critical_Date=Fehlerhaft_Datum,Critical_Mileage=Fehlerhaft_Fahrleistung)
+Vehicles_Type22$Critical_Date<-as.Date(Vehicles_Type22$Critical_Date,format="%d-%m-%Y")
+```
+
+#### Data all vehicles
+We now merge the data on each vehicle in a dataset containing the data on the vehicles of all types, named `Vehicles`.
+
+```{r create_vehicles}
+Vehicles<-rbind(Vehicles_Type11,Vehicles_Type12)%>%
+  rbind(Vehicles_Type21)%>%
+  rbind(Vehicles_Type22)
+```
+
+### Factories Data
+
+We compile the data we have on the factories that produced the gear systems in a single tidied dataset named `Factories`.
+```{r tidy_factories, message=FALSE,warning=FALSE}
+Factories_3$V3<-substring(Factories_3$V3,2,3) #removing the O in front of the Factory ID
+Factories<-rbind(top_n(Factories_1,22),Factories_2[,1:5])%>%
+  rbind(Factories_3)%>% #creating one dataframe with the data of all the factories
+  rename(Zip_Code_Factory=V1,Municipality_Factory=V2,Factory_ID=V3,Latitude_Factory=V4,Longitude_Factory=V5)%>%
+  transform(Factory_ID=as.numeric(Factory_ID),Latitude_Factory=as.numeric(levels(Latitude_Factory))[Latitude_Factory],Longitude_Factory=as.numeric(levels(Longitude_Factory))[Longitude_Factory]) #transforming the Factory_ID from a char string to num
+Factories<-Factories[,c(1,2,3,5,4)] #Puting longitude first
+```
+
+### Registrations Data
+We tidy the data we have regarding registrations.
+```{r tidy_registrations}
+Registration<-Registration[,2:4]%>%
+  rename(Vehicle_ID=IDNummer,Municipality_Registration=Gemeinden,Registration_Date=Zulassung)
+Registration$Registration_Date<-as.Date(Registration$Registration_Date,format="%d-%m-%Y")
+```
+
+
+
+### Geodata municipalities
+We tidy the geodata we have for each municipality.
+```{r tidy_geodata_municipalities}
+Geodata_municipalities<-Geodata_municipalities[,3:6]%>%
+  rename(Zip_Code_Registration=Postleitzahl,Municipality_Registration=Gemeinde,Longitude_Registration=Laengengrad,Latitude_Registration=Breitengrad)
+```
+
+
+## Merging the tidied datasets together
+
+We now merge the different datasets together into a new dataset named `Critical_Vehicles`.
+
+(@) We start with joining `Critical_Components` to `Components_Vehicles` using the `Gear_System_Type`,`Manufacturer_ID`,`Factory_ID`,`Gear_System_ID` columns. This will enable us to link the critical components to the corresponding cars using the `Vehicle_ID` column.
+```{r join_critical_components_vehicles}
+Critical_Vehicles<-left_join(Critical_Components,Components_Vehicles,c("Gear_System_Type","Manufacturer_ID","Factory_ID","Gear_System_ID"))
+```
+(@) We now join `Critical_Vehicles` to `Factories` using the `Factory_ID` columns which will enable us to know the coordinates, city and zip code of the factory in which the faulty components were produced.
+```{r join_critical_vehicles_factories}
+Critical_Vehicles<-left_join(Critical_Vehicles,Factories,c("Factory_ID"))
+```
+(@) We also add a new column to `Critical_Vehicles` displaying the total of critical cars produced in the same factory.
+```{r add_amount_critical_cars_came_factory}
+Critical_Vehicles<-left_join(Critical_Vehicles,count(Critical_Vehicles, Factory_ID, sort = TRUE, name = "Amount_Critical_Cars_Same_Factory"),c("Factory_ID"))
+```
+(@) We join `Critical_Vehicles` to `Registration` to get the information on the city where the car was registered.
+```{r join_critical_vehicles_registration}
+Critical_Vehicles<-left_join(Critical_Vehicles,Registration,c("Vehicle_ID"))
+```
+(@) We join `Critical_Vehicles` to `Geodata_municipalities` to get the coordinates of the city where the car was registered.
+```{r join_critical_vehicles_geodata_municipalities}
+Critical_Vehicles<-left_join(Critical_Vehicles,Geodata_municipalities,c("Municipality_Registration"))
+```
+
+(@) We add columns for the total of critical cars registered in the same municipality, total of registered cars and the ratio
+
+```{r add_amount_critical_cars_same_municipality}
+Critical_Vehicles<-left_join(Critical_Vehicles,count(Critical_Vehicles, Municipality_Registration, sort = TRUE, name = "Amount_Critical_Cars_Same_Municipality"),c("Municipality_Registration"))  #total registered critical cars
+Critical_Vehicles<-left_join(Critical_Vehicles,count(Registration,Municipality_Registration, sort = TRUE, name = "Amount_Cars_Same_Municipality"),c("Municipality_Registration"))  #total registered cars
+Critical_Vehicles$Critical_Total_Ratio <- (Critical_Vehicles$Amount_Critical_Cars_Same_Municipality/Critical_Vehicles$Amount_Cars_Same_Municipality)
+
+```
+(@) We finally add two columns for the amount of critical gear systems produced in the factory and the total amount of produced gear systems
+
+```{r add_amount_critical_gear_systems_same_factory}
+Critical_Vehicles<-left_join(Critical_Vehicles,count(Critical_Components, Factory_ID, sort = TRUE, name = "Amount_Critical_Gear_Systems_Factory"),c("Factory_ID"))  #total produced critical gear systems
+K3SG1_Factory<-select(Component_K3SG1,Werksnummer.x)%>%
+  rename(Factory_ID=Werksnummer.x)
+K3SG2_Factory<-select(Component_K3SG2,Werksnummer)%>%
+  rename(Factory_ID=Werksnummer)
+All_Components_Factory<-rbind(K3SG1_Factory,K3SG2_Factory)
+Critical_Vehicles<-left_join(Critical_Vehicles,count(All_Components_Factory, Factory_ID, sort = TRUE, name = "Amount_Gear_Systems_Factory"),c("Factory_ID"))  #total gear systems
+
+```
+
+## Creating table of cars to warn
+
+We finally create a table of vehicles not yet critical but depending on the location where they registered they may have high chances to end up being faulty. The latitude limit will be set in the shiny app.
+
+```{r creating_table_not_critical_vehicles}
+Vehicles_Type11_non_critical<-filter(Vehicles_OEM1_Type11,Fehlerhaft!=1)%>%
+  select(ID_Fahrzeug,Produktionsdatum,Werksnummer)%>%
+  rename(Vehicle_ID=ID_Fahrzeug,Production_Date=Produktionsdatum,Factory_ID=Werksnummer)
+Vehicles_Type11_non_critical$Production_Date<-as.Date(Vehicles_Type11_non_critical$Production_Date,format="%d-%m-%Y")
+
+Vehicles_Type12_non_critical<-filter(Vehicles_OEM1_Type12,Fehlerhaft!=1)%>%
+  select(ID_Fahrzeug,Produktionsdatum,Werksnummer)%>%
+  rename(Vehicle_ID=ID_Fahrzeug,Production_Date=Produktionsdatum,Factory_ID=Werksnummer)
+Vehicles_Type12_non_critical$Production_Date<-as.Date(Vehicles_Type12_non_critical$Production_Date,format="%d-%m-%Y")
+
+Vehicles_Type21_non_critical<-filter(Vehicles_OEM2_Type21,Fehlerhaft!=1)%>%
+  select(ID_Fahrzeug,Production_Date,Werksnummer)%>%
+  rename(Vehicle_ID=ID_Fahrzeug,Factory_ID=Werksnummer)
+
+Vehicles_Type22_non_critical<-filter(Vehicles_OEM2_Type22,Fehlerhaft!=1)%>%
+  select(ID_Fahrzeug,Production_Date,Werksnummer)%>%
+  rename(Vehicle_ID=ID_Fahrzeug,Factory_ID=Werksnummer)
+
+Vehicles_non_critical<-rbind(Vehicles_Type11_non_critical,Vehicles_Type12_non_critical)%>%
+  rbind(Vehicles_Type21_non_critical)%>%
+  rbind(Vehicles_Type22_non_critical)
+
+Vehicles_non_critical<-left_join(Vehicles_non_critical,Registration,c("Vehicle_ID"))
+Vehicles_non_critical<-left_join(Vehicles_non_critical,Geodata_municipalities,c("Municipality_Registration"))
+```
+
+## Saving the final dataset
+With this final line we save our `Critical_Vehicles` dataset in RData format in our project folder.
+```{r saving_rdata}
+Critical_Vehicles$Zip_Code_Registration <- as.factor(Critical_Vehicles$Zip_Code_Registration)
+Critical_Vehicles$Registration_Date <- as.Date(Critical_Vehicles$Registration_Date)
+save(Critical_Vehicles,Vehicles_non_critical,list = c("Critical_Vehicles","Vehicles_non_critical"), file = "Final_Data_Group_13.RData")
+```
+
+## Analysis of results
+Analyzing the data shows that there are 141,142 registered cars with critical gear systems due to 208's clutch discs. The first graph of the chronological registration of the affected cars shows the affected cars are spread throughout many municipalities, and have been registered at different times between 2009 and 2016. The table of information about all the affected cars and their registration can be used to identify all the car owners who must be alerted. 
+
+The heatmap shows that most critical cars are registered in areas around the Southwest (the red areas on the heatmap), towards where the Alps are located. Since the clutch is damaging when used around hilly areas, the car owners in these areas must be informed. The table of critical cars according to the input Northern latitude limit can be used to filter the car owners in these concerning areas. 
+
+The heatmap also shows that the critical gear systems were produced by Factory 1051 (Schweinfurt), Factory 1072 (Stuttgart), and Factory 1081 (Karlsruhe), so these factories should be alerted of the faulty clutch discs. The bar graph shows approximately 10% of the gear systems produced by each of these factories is faulty.
+
+
+
+

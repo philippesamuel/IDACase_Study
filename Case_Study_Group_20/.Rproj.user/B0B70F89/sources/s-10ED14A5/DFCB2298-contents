@@ -1,0 +1,184 @@
+---
+title: "General Tasks Group 20"
+author: "Suhaib"
+date: "21 Juli 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+**Question 1**
+
+Set directory to the folder with all data folders
+
+```{r}
+setwd("D:/UNI/IDA CaseStudy/Data")
+```
+
+
+Load required Packages:
+
+```{r}
+if(!require(dplyr)){
+  install.packages("dplyr")
+  require(dplyr)
+}
+
+if(!require(data.table)){
+  install.packages("data.table")
+  require(data.table)
+}
+
+if(!require(ggplot2)){
+  install.packages("ggplot2")
+  require(ggplot2)
+}
+
+if(!require(fitdistrplus)){
+  install.packages("fitdistrplus")
+  require(fitdistrplus)
+}
+
+if(!require(goft)){
+  install.packages("goft")
+  require(goft)
+}
+
+if(!require(tidyverse)){
+  install.packages("tidyverse")
+  require(tidyverse)
+}
+```
+
+**Question 1**
+
+Load Dataframes seperately and combine them:
+
+```{r}
+df_K7 <- fread('D:/UNI/IDA CaseStudy/Data/Logistikverzug/Komponente_K7.csv')        #Extract production date from here
+df_logistic_delay = fread('D:/UNI/IDA CaseStudy/Data/Logistikverzug/Logistikverzug_K7.csv') #Extract receiving date from here
+
+#Merge both dataframes and keep relevant columns (production - receiption - ID-Number)
+df_combi = dplyr::select(merge(df_K7, df_logistic_delay, by='IDNummer'), 'IDNummer', 'Produktionsdatum', 'Wareneingang')
+
+#Convert character to date datatype
+df_combi$Wareneingang <- as.Date(df_combi$Wareneingang, "%d.%m.%Y")
+df_combi$Produktionsdatum <- as.Date(df_combi$Produktionsdatum, "%Y-%m-%d")
+
+#Calculate logistic delay as difference of Production and receiving date
+df_combi$delay = as.numeric(df_combi$Wareneingang - df_combi$Produktionsdatum)
+```
+
+Investigate the data to get an impression of a possible distribution:
+
+```{r}
+
+#Put data in relation with different distributions -> then look detailed into possible matches:
+descdist(df_combi$delay, discrete = FALSE) #Check normal, lognormal, gamma
+
+#Plot delay histogram
+
+fit.norm <- fitdist(df_combi$delay, "norm")
+fit.lognormal <- fitdist(df_combi$delay, "lnorm")
+fit.gamma <- fitdist(df_combi$delay, "gamma")
+
+plot(fit.norm)
+plot(fit.lognormal)
+plot(fit.gamma)
+
+#Result: Most likely a lognormal distribution with mean: 1.605819, sd: 0.198195
+```
+
+**Question 2**
+
+Advantage of Splitting:
+  - Reducing import time 
+  - Requiring less memory usage and CPU Power
+  - Option to only import relevant parts
+  
+Underlying data base concept: 
+  Relational Database Management System (RDBMS)
+
+
+**Question 3**
+
+```{r}
+
+#Import cars details:
+
+#Registrations:
+Zulassungen = fread("D:/UNI/IDA CaseStudy/Data/Zulassungen/Zulassungen_alle_Fahrzeuge.csv", header = TRUE )
+
+#Komponents:
+Bestandteile_Fahrzeuge_1 <- fread('D:/UNI/IDA CaseStudy/Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM1_Typ11.csv', header=TRUE)
+Bestandteile_Fahrzeuge_2 <- fread('D:/UNI/IDA CaseStudy/Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM1_Typ12.csv', header=TRUE)
+Bestandteile_Fahrzeuge_3 <- fread('D:/UNI/IDA CaseStudy/Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM2_Typ21.csv', header=TRUE)
+Bestandteile_Fahrzeuge_4 <- fread('D:/UNI/IDA CaseStudy/Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM2_Typ22.csv', header=TRUE)
+
+#Rename First column of Bestandteile_Fahrzeuge_4 from "X1" to "V1" and merge all files together
+colnames(Bestandteile_Fahrzeuge_4)[1] = 'V1'
+Bestandteile_Fahrzeuge_complete <- rbind(Bestandteile_Fahrzeuge_1, Bestandteile_Fahrzeuge_2, Bestandteile_Fahrzeuge_3, Bestandteile_Fahrzeuge_4)
+
+#Investigate the combined data frame:
+head(Bestandteile_Fahrzeuge_complete)
+
+#IDNummer from the df_K7 and ID_Karosserie from the Bestandteile_Fahrzeuge_complete data frame seem to be the same ID
+#What we need is the ID_Fahrzeug of every car with Component K7. Therefore filter the Bestandteile_Fahrzeuge_complete for that.
+
+
+K7_Cars_ID <- dplyr::select(Bestandteile_Fahrzeuge_complete %>% filter(str_detect(ID_Karosserie, "K7")), ID_Fahrzeug)
+
+#Now look for those IDs in the Zulassungen dataframe and filter for cars from Dortmund
+#Do that by first merging "Zulassungen" with K7_Cars_ID by ID_Fahrzeug -> then filter for Gemeinden == Dortmund
+#Since the relevant ID in "Zulassungen" is called "IDNummer" we have to merge with respect to that
+
+K7_cars_Dortmund <- K7_Cars_ID %>% merge(Zulassungen, by.x='ID_Fahrzeug', by.y='IDNummer') %>% filter(Gemeinden == 'DORTMUND')
+
+#Now we have a data frame containing all cars with component K7 that are registered in Dortmund
+#Get the number of those cars by counting the rows of that data frame
+nrow(K7_cars_Dortmund)
+
+#Result: 5275 cars
+
+```
+
+**Question 4**
+
+```{r}
+#Use str() to identify the data types used in the "Zulassungen" Data frame:
+str(Zulassungen)
+
+#Result: Integer and Strings
+```
+
+**Question 5**
+
+Advantages of server based data:
+  - More computing power -> Makes requests/access to data faster
+  - Safer against data loss
+  - More memory storage
+  - Better scalability, especially when working on long term projects where databases can get huge
+  - Easier to share with others -> Access to the server can be administered easily 
+
+
+**Question 6**
+
+```{r}
+
+#Wanted ID:
+ID_wanted <- "K1BE2-104-1041-32049"
+
+#Find the "ID_Fahrzeug" from the complete car details list:
+ID_Car <- Bestandteile_Fahrzeuge_complete %>% filter(ID_Motor == ID_wanted) %>% dplyr::select("ID_Fahrzeug")
+
+#Find the commune in which this ID is registered
+#Remember that the ID in the "Zulassungen" frame is named "IDNummer"
+Zulassungen %>% filter(IDNummer == ID_Car[[1]]) %>% dplyr::select("Gemeinden")
+
+#Result: The wanted car is registered in Leipzig
+```
+

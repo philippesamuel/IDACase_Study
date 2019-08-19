@@ -1,0 +1,142 @@
+---
+title: "Case Study Group 20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "D:/UNI/IDA CaseStudy/Data/") #Set working directory
+```
+***
+## Libraries Import
+
+The first step is to import the required libraries for the rest of our script to wor:
+
+```{r library_import, message=FALSE, warning=FALSE}
+if(!require(dplyr)){
+  install.packages("dplyr")
+  require(dplyr)
+}
+
+if(!require(tidyverse)){
+  install.packages("tidyverse")
+  require(tidyverse)
+}
+
+if(!require(readr)){
+  install.packages("readr")
+  require(readr)
+}
+
+if(!require(stringr)){
+  install.packages("stringr")
+  require(stringr)
+}
+```
+
+The following overview should give an impression of required data base:
+
+We want to have the following information in our final data frame:
+  - Registration date for every car
+  - Registration commune
+    - Post code of the commune
+    - Geodata for the commune
+  - Engine type (Diesel vs. Petrol)
+
+**Import relevant data**
+
+```{r message=FALSE, warning=FALSE}
+#We need to get the information about the engine type (diesel/petrol):
+
+#Engine-IDs -> Diesel vs. Petrol:
+Engines_Types_1 <- read_csv2("Fahrzeug/Bestandteile_Fahrzeuge_OEM1_Typ11.csv", 
+                                   col_types = cols(X1 = col_skip(),
+                                                  ID_Karosserie = col_skip(), 
+                                                  ID_Schaltung = col_skip(), 
+                                                  ID_Sitze = col_skip()))
+
+Engines_Types_2 <- read_csv2("Fahrzeug/Bestandteile_Fahrzeuge_OEM1_Typ12.csv", 
+                                   col_types = cols(X1 = col_skip(),
+                                                  ID_Karosserie = col_skip(), 
+                                                  ID_Schaltung = col_skip(), 
+                                                  ID_Sitze = col_skip()))
+
+Engines_Types_3 <- read_csv2("Fahrzeug/Bestandteile_Fahrzeuge_OEM2_Typ21.csv", 
+                                   col_types = cols(X1 = col_skip(),
+                                                  ID_Karosserie = col_skip(), 
+                                                  ID_Schaltung = col_skip(), 
+                                                  ID_Sitze = col_skip()))
+
+Engines_Types_4 <- read_csv2("Fahrzeug/Bestandteile_Fahrzeuge_OEM2_Typ22.csv", 
+                                   col_types = cols(X1 = col_skip(),
+                                                  ID_Karosserie = col_skip(), 
+                                                  ID_Schaltung = col_skip(), 
+                                                  ID_Sitze = col_skip()))
+#Combine to one Error-File:
+Engine_Types <- rbind(Engines_Types_1, Engines_Types_2, Engines_Types_3, Engines_Types_4)
+
+  #Change the engine column to diesel/petrol -> K1D... -> "Diesel", K1B... -> "Benzin"
+  index_B <- str_detect(Engine_Types$ID_Motor, "K1B")
+  Engine_Types[, "ID_Motor"] <- "Diesel"  
+  Engine_Types[index_B, "ID_Motor"] <- "Benzin"
+
+#Registration date and place
+#We need the place and date of registration
+Zulassungen <- read_csv2("Zulassungen/Zulassungen_alle_Fahrzeuge.csv",
+                         col_types = cols(X1 = col_skip()))
+
+#Gedata of place
+#We need latitute and altitude of every commune and the post code
+Geodata <- read_csv2("Geodaten/Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv", 
+                                   col_types = cols(X1 = col_skip(), X = col_skip()))
+```
+
+```{r message=FALSE, warning=FALSE}
+#Now combine everything:
+  #1.) Combine this data frame with the registration information:
+        complete_information <- inner_join(Engine_Types, Zulassungen, by = c("ID_Fahrzeug" = "IDNummer"))
+  
+  #2.) Combine this data frame with the geodata and group by municipality:
+        complete_information <- left_join(complete_information, Geodata, by = c("Gemeinden" = "Gemeinde"))
+        
+  #3.) #PLZ Null davor setzen, wenn nur vierstellig!
+        complete_information$Postleitzahl <- str_pad(complete_information$Postleitzahl, 5, pad = "0")
+```
+
+
+```{r message=FALSE, warning=FALSE}
+colSums(is.na(complete_information))
+subset(complete_information, is.na(complete_information$Laengengrad)) #-> Gemeinde Seeg überprüfen!
+complete_information[complete_information$Gemeinden == "SEEG", "Postleitzahl"] <- 87637
+complete_information[complete_information$Gemeinden == "SEEG", "Laengengrad"] <- 10.61
+complete_information[complete_information$Gemeinden == "SEEG", "Breitengrad"] <- 47.67
+
+```
+
+
+```{r message=FALSE, warning=FALSE}
+#Group by post code, create new columns with information about the percentage of diesel cars and select relevant columns
+complete_information <- complete_information %>%
+          group_by(Gemeinden) %>%
+            mutate(Region = substr(Postleitzahl, 1, 2)) %>%
+              select(Zulassung, ID_Motor, Gemeinden, Postleitzahl, Region, Laengengrad, Breitengrad)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+#Use this data to create the heatmap table (Aggregate for each commune)
+Heatmap_Data <- na.omit(complete_information[match(
+  unique(complete_information$Gemeinden), 
+  complete_information$Gemeinden),])
+```
+
+
+```{r message=FALSE, warning=FALSE}
+#Save data frame as csv:
+  setwd("C:/Users/sahid/Documents/GitHub/IDACase_Study/Case_Study_Group_20")
+    # save(complete_information2, file = "Final_Data_Group_20.RData")
+    save(complete_information, file = "Final_Data_Group_20_original.RData")
+    write.csv(complete_information, "Case_Study_Data.csv")
+```
+
+
