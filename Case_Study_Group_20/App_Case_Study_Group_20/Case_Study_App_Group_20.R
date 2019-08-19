@@ -45,6 +45,17 @@ if(!require(tidyr)){
   require(tidyr)
 }
 
+if(!require(cowplot)){
+  install.packages("cowplot")
+  require(cowplot)
+}
+
+# if(!require(gridExtra)){
+#   install.packages("gridExtra")
+#   require(gridExtra)
+# }
+
+
 #### Loading the final RData file ####
 load("Final_Data_Group_20_original.RData")
 
@@ -253,38 +264,47 @@ server <- function(input, output) {
                 mutate(Anzahl_Diesel = sum(ID_Motor == "Diesel"), Anzahl_Benzin = sum(ID_Motor == "Benzin"))%>%
                   select(Anzahl_Diesel, Anzahl_Benzin)
     
+    #Creating a data frame with info needed for Plotting regional data
     small_cars_df <- data.frame(
       Motor = c("Diesel", "Benzin"),
       Number = c(region_cars$Anzahl_Diesel[1], region_cars$Anzahl_Benzin[1])) %>%
         mutate(partial= Number / sum(Number)) %>%
-          mutate(labels= paste(percent(partial)," (",Number, ")", sep = ""))
-
-    small_cars_bp<- ggplot(small_cars_df, aes(x="", y=Number, fill=Motor)) +
-      geom_bar(width = 0.9, stat = "identity", color= "white")
+          mutate(labels= paste(percent(partial),"\n (",Number, ")", sep = ""))
     
-    pie <- small_cars_bp + coord_polar("y", start=0)
-    pie +
+    #Creating a pie chart for regional data
+    pie<- ggplot(small_cars_df, aes(x="", y=Number, fill=Motor)) +
+      geom_bar(width = 0.9, stat = "identity", color= "black") + coord_polar("y", start=0)
+    
+    #Further Formatting of pie chart
+    regional_pie <- pie +
       scale_fill_brewer(palette="Greens") + 
       geom_text(aes(y = Number/2 + c(0, cumsum(Number)[-length(Number)]),
                     label = labels), size=4) + 
-      ggtitle("Affected car owners in ban region: ", region_cars$Anzahl_Diesel[1]) + 
+      ggtitle("Region \nAffected car owners in ban region: ", region_cars$Anzahl_Diesel[1]) + 
       theme(axis.title = element_blank(),
-            plot.title = element_text(face = "bold", size = 16))
-
-
-    #Prozentualer Anteil der Betroffenen -> muss anders beschriftet werden!
-    #Am besten mehere solcher Plots erstellen und kombinieren
-    #Nachschauen, ob man solche plots einfach durch die Angaben der Prozente erstellen kann 
+            plot.title = element_text(face = "bold", size = 12))
     
-    # plot_data <- complete_information %>%
-    #     ungroup() %>%
-    #       filter(Zulassung <= input$banDate)%>%
-    #       filter(Region == input$regionCode)%>%
-    #       group_by(ID_Motor)%>%
-    #         ggplot(aes(x = Region, fill = ID_Motor)) + geom_bar(position = "fill") + ggtitle("Affected car owners in ban region: ", input$regionCode) +
-    #         coord_polar("y")
-    # 
-    # plot_data
+    affected <- as.integer(region_cars$Anzahl_Diesel[1])
+    
+    #Creating a data frame with info needed for Plotting national data
+    national_df <- data.frame(
+      Group = c("Unaffected", "Affected"),
+      Number = c(NROW(complete_information)-affected, affected)) %>%
+      mutate(partial= Number / sum(Number)) %>%
+      mutate(labels= paste(percent(partial),"\n (",Number, ")", sep = ""))
+    
+    #Creating a pie chart for national data with same format as regional pie chart
+    national_pie <- ggplot(national_df, aes(x="", y=Number, fill=Group)) +
+      geom_bar(width = 0.9, stat = "identity", color= "black") + coord_polar("y", start=0) +
+      scale_fill_brewer(palette="Greens") +
+      geom_text(aes(y = Number/2 + c(0, cumsum(Number)[-length(Number)]),
+                    label = labels), size=4) +
+      ggtitle("Nation \nPercentage of affected car owners in nation: ", percent(national_df$partial[2])) + 
+      theme(axis.title = element_blank(),
+            plot.title = element_text(face = "bold", size = 12))
+    
+    #Plot both Pie charts side by side
+    plot_grid(regional_pie, national_pie)
     
   })
 }
